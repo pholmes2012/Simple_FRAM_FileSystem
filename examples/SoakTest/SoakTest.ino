@@ -15,8 +15,22 @@ SFFS_HW_I2C g_hw;
 SFFS_HW_SPI g_hw(CS_PIN);
 #endif
 
+typedef struct {
+	const char* name;
+	uint16_t size;
+}sFILE_ITEM;
+sFILE_ITEM g_files[] = {
+	"file100", 100,
+	"file200", 200,
+	"file300", 300,
+	"file400", 400,
+	"file500", 500,
+	"file600", 600
+};
+#define g_fileCount (sizeof(g_files)/sizeof(sFILE_ITEM))
+
 SFFS_Volume g_ffs(g_hw);
-#define BUFFER_SIZE_MAX 450
+#define BUFFER_SIZE_MAX 350
 uint8_t g_buffer[BUFFER_SIZE_MAX];
 uint8_t g_readBuffer[BUFFER_SIZE_MAX];
 
@@ -26,9 +40,10 @@ void createFile(char* name, uint32_t maxSize)
 	if (handle != NULL)
 	{
 		uint32_t hasWritten = g_ffs.fWrite(handle, g_buffer, sizeof(g_buffer));
+		maxSize = (sizeof(g_buffer) < g_ffs.fSizeMax(handle)) ? sizeof(g_buffer) : g_ffs.fSizeMax(handle); 
 		if (hasWritten != maxSize)
 		{
-		  	Serial.print("ERROR: Create file write: size ");
+		  	Serial.print("ERROR: Create file write: maxWrite ");
 		  	Serial.print(maxSize);
 		  	Serial.print(" wrote ");
 		  	Serial.println(hasWritten);
@@ -38,6 +53,8 @@ void createFile(char* name, uint32_t maxSize)
 		g_ffs.fClose(handle);
 	}
 }
+
+
 bool checkFile(char* name)
 {
 	bool bRet = false;
@@ -77,12 +94,21 @@ bool checkFile(char* name)
 		}
 		g_ffs.fClose(handle);
 	}
-	if (bRet)
+	if (false && bRet)
 	{
   		Serial.print("Check file '");
   		Serial.print(name);
   		Serial.println("' OK");
 	}
+	return bRet;
+}
+
+bool checkAll()
+{
+	bool bRet = true;
+	for (int i=0; i<g_fileCount && bRet==true; i++)
+		bRet = checkFile(g_files[i].name);
+	Serial.print("Check files "); Serial.println((bRet) ? "OK" : "FAIL");
 	return bRet;
 }
 
@@ -95,6 +121,42 @@ void writeFileAt(char* name, uint32_t offset, uint32_t writeSize)
 		g_ffs.fWrite(handle, g_buffer, writeSize);
 		g_ffs.fClose(handle);
 	}
+}
+
+
+bool doATransfer(uint8_t SrcIdx, uint8_t DstIdx, uint32_t offset, uint32_t len)
+{
+	bool bRet = false;
+	
+	Serial.print("Tran: ");
+	Serial.print(g_files[SrcIdx].name);
+	Serial.print(" @");
+	Serial.print(offset);
+	Serial.print("[");
+	Serial.print(len);
+	Serial.print("] to ");
+	Serial.println(g_files[DstIdx].name);
+	
+	SFFS_FP hSrc = g_ffs.fOpen(g_files[SrcIdx].name);
+	if (hSrc != NULL)
+	{
+		uint32_t lenRead = g_ffs.fReadAt(hSrc, offset, g_readBuffer, len);
+		g_ffs.fClose(hSrc); // Close here in case we are copying to the same file
+		if (lenRead > 0)
+		{
+			SFFS_FP hDst = g_ffs.fOpen(g_files[DstIdx].name);
+			if (hDst != NULL)
+			{
+				uint32_t lenWritten = g_ffs.fWriteAt(hDst, offset, g_readBuffer, lenRead);
+				if (lenWritten > 0)
+				{
+				}
+				g_ffs.fClose(hDst);
+				bRet = true;
+			}
+		}	
+	}	
+	return bRet;
 }
 
 void setup(void)
@@ -110,7 +172,7 @@ void setup(void)
   
   if (g_ffs.begin(beginParam))
   {
-    g_ffs.debug(true);
+    //g_ffs.debug(true);
     
 	if (g_ffs.VolumeCreate("NewVolume")==false)
 	{
@@ -118,22 +180,35 @@ void setup(void)
 		while (1)
 		;
 	}
-	createFile("file100", 100);
-	createFile("file200", 200);
-	createFile("file300", 300);
-	createFile("file400", 400);
-	createFile("file500", 500);
-	createFile("file600", 600);
 	
-	checkFile("file100");
-	checkFile("file200");
-	checkFile("file300");
-	checkFile("file400");
-	checkFile("file500");
-	checkFile("file600");
+	for (int i=0; i<g_fileCount; i++)
+	{
+		Serial.println("");
+		createFile(g_files[i].name, g_files[i].size);
+	}
+	Serial.println("");
+	checkAll();
+	Serial.println("");
+	Serial.println("******");
+	Serial.println("");
   }
 }
 
+uint32_t loopCount = 0;
+
 void loop(void)
 {
+	if ( doATransfer( rand()%g_fileCount,rand()%g_fileCount,10+(rand()%90), 1+(rand()%(sizeof(g_buffer)-1)) ) == false)
+	{
+		Serial.print("FAIL-TRAN: On loop #"); Serial.println(loopCount);
+		while (1)
+		;
+	}
+	if (checkAll()==false)
+	{
+		Serial.print("FAIL-CHECK: On loop #"); Serial.println(loopCount);
+		while (1)
+		;
+	}
+	loopCount++;
 }
