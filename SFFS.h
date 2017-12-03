@@ -413,10 +413,24 @@ public:
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		return pFile->Read(pBuf, count);
 	}
+	uint32 fReadAt(SFFS_FP handle, uint32 offset, uint8* pBuf, uint32 count)
+	{
+		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
+		if (pFile->Seek(offset)==offset)
+			return fRead(handle, pBuf, count);
+		return 0;
+	}
 	uint32 fWrite(SFFS_FP handle, uint8* pBuf, uint32 count)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		return pFile->Write(pBuf, count);
+	}
+	uint32 fWriteAt(SFFS_FP handle, uint32 offset, uint8* pBuf, uint32 count)
+	{
+		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
+		if (pFile->Seek(offset)==offset)
+			return fWrite(handle, pBuf, count);
+		return 0;
 	}
 	uint32 fSeek(SFFS_FP handle, uint32 offset)
 	{

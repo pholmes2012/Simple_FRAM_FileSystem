@@ -34,6 +34,7 @@ SFFS_FileHead::Create(const char* name, uint32 dataOffset, uint32 dataSize, uint
 		m_index = index;
 		m_dataOffset = dataOffset;
 		m_dataMaxSize = dataSize;
+		m_streamOffset = 0;
 		m_dataWrittenSize = 0;
 	  	DEBUG_OUT.print("Create: "); DEBUG_OUT.print(m_name); DEBUG_OUT.print(" size "); DEBUG_OUT.println(dataSize);
 		Seek(0);
@@ -98,8 +99,18 @@ SFFS_FileHead::Close()
 uint32
 SFFS_FileHead::Read(uint8* pDest, uint32 count)
 {
+  	DEBUG_OUT.print("Read: "); DEBUG_OUT.print(m_name); DEBUG_OUT.print(" bytes: "); DEBUG_OUT.println(count);
+#ifdef DEBUG_DEV
+	_showFH();
+#endif
 	uint32 done = m_pVol->m_ios.Read(m_dataOffset+m_streamOffset, pDest, boundRead(m_streamOffset, count));
-	return _hasRead(done);
+	DEBUG_OUT.print("ReadDone: ");
+	DEBUG_OUT.println(done);
+	done = _hasRead(done);
+#ifdef DEBUG_DEV
+	_showFH();
+#endif
+	return done;
 }
 
 #ifdef DEBUG_DEV
