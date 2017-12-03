@@ -273,6 +273,30 @@ SFFS_Volume::_volumeCommit()
 	m_fileMemStart = m_ios.Tell();
 }
 
+bool
+SFFS_Volume::fList(uint index, char* pBuffer, uint bufferSize)
+{
+	bool bRet = false;
+	if (bufferSize > SFFS_FILE_NAME_LEN)
+	{
+		if (index < m_fileCount)
+		{
+			SFFS_FileHead head;
+			head.Open(index);
+			if (SFFS_Tools::strcpy(pBuffer, head.Name(), bufferSize))
+			{
+				bRet = true;
+			}
+			head.Close();
+		}
+	}
+	if (bRet==false)
+	{
+		DEBUG_OUT.println("SFFS:fList: Bad param.");
+	}
+	return bRet;
+}
+
 SFFS_FP
 SFFS_Volume::fCreate(const char* fileName, uint32 maxSize)
 {
