@@ -612,4 +612,20 @@ public:
 	}
 };
 
+class SFFS_Volume_I2C : public SFFS_Volume
+{
+private:
+	cIO_DRV_I2C m_drv;
+public:
+	SFFS_Volume_I2C() : SFFS_Volume(m_drv)
+	{
+	}
+	bool begin(uint8 hwAddr)
+	{
+		if (m_drv.Init(hwAddr))
+			return SFFS_Volume::init();
+		return false;
+	}
+};
+
 #endif //_SFFS_H

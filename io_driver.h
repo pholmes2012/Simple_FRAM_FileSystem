@@ -76,6 +76,16 @@ public:
 	cIO_DRV()
 	{
 	}
+	virtual uint8 ReadByte(uint32 offset)
+	{
+		uint8 data=0;
+		(void)Read(offset, &data, 1);
+		return data;
+	}
+	virtual bool WriteByte(uint32 offset, uint8 data)
+	{
+		return (Write(offset, &data, 1)==1) ? true : false;
+	}
 	virtual uint32 Read(uint32 offset, uint8* pBuf, uint32 count) = 0;
 	virtual uint32 Write(uint32 offset, const uint8* pBuf, uint32 count) = 0;
 };
@@ -97,6 +107,24 @@ private:
 
 	void _writeAddress(uint32 offset);
 	void _writeEnable(bool bEnable);
+};
+
+#define I2C_DEFAULT_ADDRESS 0x50
+
+class cIO_DRV_I2C : public cIO_DRV
+{
+public:
+	cIO_DRV_I2C() : cIO_DRV()
+	{
+	}
+	bool Init(uint8 hwAddr);
+	
+	virtual uint32 Read(uint32 offset, uint8* pBuf, uint32 count);
+	virtual uint32 Write(uint32 offset, const uint8* pBuf, uint32 count);
+private:
+	uint8 m_hwAddr;
+
+	void _writeAddress(uint32 offset);
 };
 
 #endif //_io_driver_h
