@@ -15,7 +15,7 @@ void setup() {
   while(!Serial)
    ;
 
-  //g_ffs.debug(true);
+  g_ffs.debug(true);
   
   // Use defailt address
   if (g_ffs.begin(I2C_DEFAULT_ADDRESS)==false)

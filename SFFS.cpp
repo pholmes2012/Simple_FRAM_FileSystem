@@ -13,9 +13,16 @@
 /**************************************************************************/
 #include "SFFS.h"
 
+//#define DEV_DBG
+
 bool g_bDebug = false;
-#define DEBUG_OUT if (g_bDebug) Serial
-#define DEBUG_DEV if (g_bDebug) Serial
+#ifdef DEV_DBG
+#define DEBUG_OUT(s) if (g_bDebug) Serial.s
+#define DEBUG_DEV(s) if (g_bDebug) Serial.s
+#else
+#define DEBUG_OUT(s)
+#define DEBUG_DEV(s)
+#endif
 
 /**********************************************************************
 //
@@ -36,13 +43,13 @@ SFFS_FileHead::Create(const char* name, uint32 dataOffset, uint32 dataSize, uint
 		m_dataMaxSize = dataSize;
 		m_streamOffset = 0;
 		m_dataWrittenSize = 0;
-	  	DEBUG_OUT.print("Create: "); DEBUG_OUT.print(m_name); DEBUG_OUT.print(" size "); DEBUG_OUT.println(dataSize);
+	  	DEBUG_OUT(print("Create: ")); DEBUG_OUT(print(m_name)); DEBUG_OUT(print(" size ")); DEBUG_OUT(println(dataSize));
 		Seek(0);
 		Commit();
 	}
 	else
 	{
-		DEBUG_OUT.print("SFFS: File name too long or incorrect!");
+		DEBUG_OUT(print("SFFS: File name too long or incorrect!"));
 	}
 	return m_bInUse;
 }
@@ -99,32 +106,31 @@ SFFS_FileHead::Close()
 uint32
 SFFS_FileHead::Read(uint8* pDest, uint32 count)
 {
-  	DEBUG_OUT.print("Read: "); DEBUG_OUT.print(m_name); DEBUG_OUT.print(" bytes: "); DEBUG_OUT.println(count);
-#ifdef DEBUG_DEV
+  	DEBUG_OUT(print("Read: ")); DEBUG_OUT(print(m_name)); DEBUG_OUT(print(" bytes: ")); DEBUG_OUT(println(count));
+#ifdef DEV_DBG
 	_showFH();
 #endif
 	uint32 done = m_pVol->m_ios.Read(m_dataOffset+m_streamOffset, pDest, boundRead(m_streamOffset, count));
-	DEBUG_OUT.print("ReadDone: ");
-	DEBUG_OUT.println(done);
+	DEBUG_OUT(print("ReadDone: "));	DEBUG_OUT(println(done));
 	done = _hasRead(done);
-#ifdef DEBUG_DEV
+#ifdef DEV_DBG
 	_showFH();
 #endif
 	return done;
 }
 
-#ifdef DEBUG_DEV
+#ifdef DEV_DBG
 void
 SFFS_FileHead::_showFH()
 {
-	DEBUG_OUT.print("DOff ");
-	DEBUG_OUT.print(m_dataOffset);
-	DEBUG_OUT.print(", fp ");
-	DEBUG_OUT.print(m_streamOffset);
-	DEBUG_OUT.print(", size ");
-	DEBUG_OUT.print(m_dataWrittenSize);
-	DEBUG_OUT.print("/");
-	DEBUG_OUT.println(m_dataMaxSize);
+	DEBUG_OUT(print("DOff "));
+	DEBUG_OUT(print(m_dataOffset));
+	DEBUG_OUT(print(", fp "));
+	DEBUG_OUT(print(m_streamOffset));
+	DEBUG_OUT(print(", size "));
+	DEBUG_OUT(print(m_dataWrittenSize));
+	DEBUG_OUT(print("/"));
+	DEBUG_OUT(println(m_dataMaxSize));
 }
 #endif
 
@@ -132,15 +138,14 @@ SFFS_FileHead::_showFH()
 uint32
 SFFS_FileHead::Write(uint8* pSource, uint32 count)
 {
-  	DEBUG_OUT.print("Write: "); DEBUG_OUT.print(m_name); DEBUG_OUT.print(" bytes: "); DEBUG_OUT.println(count);
-#ifdef DEBUG_DEV
+  	DEBUG_OUT(print("Write: ")); DEBUG_OUT(print(m_name)); DEBUG_OUT(print(" bytes: ")); DEBUG_OUT(println(count));
+#ifdef DEV_DBG
 	_showFH();
 #endif
 	uint32 done = m_pVol->m_ios.Write(m_dataOffset+m_streamOffset, pSource, boundWrite(m_streamOffset, count));
 	done = _hasWritten(done);
-	DEBUG_OUT.print("WriteDone: ");
-	DEBUG_OUT.println(done);
-#ifdef DEBUG_DEV
+	DEBUG_OUT(print("WriteDone: ")); DEBUG_OUT(println(done));
+#ifdef DEV_DBG
 	_showFH();
 #endif
 	m_bChanged = true;
@@ -187,7 +192,7 @@ SFFS_Volume::init()
 	}
 	else
 	{
-		DEBUG_OUT.println("SFFS: Can not read or write FRAM.");
+		DEBUG_OUT(println("SFFS: Can not read or write FRAM."));
 	}
 	return bRet;
 }
@@ -208,7 +213,7 @@ SFFS_Volume::VolumeCreate(const char* volumeName)
 	
 	_volumeCommit();
 	
-	DEBUG_OUT.print("Volume '"); DEBUG_OUT.print(m_volumeName); DEBUG_OUT.println("' created.");
+	DEBUG_OUT(print("Volume '")); DEBUG_OUT(print(m_volumeName)); DEBUG_OUT(println("' created."));
 
 	return _volumeOpen();
 }
@@ -228,16 +233,16 @@ SFFS_Volume::_volumeOpen()
 		m_ios.Read((uint8*)&m_magic, sizeof(m_magic));
 		if (m_magic.value == SFFS_MAGIC_INT)
 		{
-			DEBUG_OUT.print("SFFS: Volume '"); 
-			DEBUG_OUT.print(m_volumeName); 
-			DEBUG_OUT.println("' mounted."); 
+			DEBUG_OUT(print("SFFS: Volume '")); 
+			DEBUG_OUT(print(m_volumeName)); 
+			DEBUG_OUT(println("' mounted.")); 
 			m_fileMemStart = m_ios.Tell();
 			bRet = true;
 		}
 	}
 	if (!bRet)
 	{
-		DEBUG_OUT.println("SFFS: No volume mounted.");
+		DEBUG_OUT(println("SFFS: No volume mounted."));
 	}
 	return bRet;
 }
@@ -273,7 +278,7 @@ SFFS_Volume::fList(uint index, char* pBuffer, uint bufferSize)
 	}
 	if (bRet==false)
 	{
-		DEBUG_OUT.println("SFFS:fList: Bad param.");
+		DEBUG_OUT(println("SFFS:fList: Bad param."));
 	}
 	return bRet;
 }
@@ -304,7 +309,7 @@ SFFS_Volume::fCreate(const char* fileName, uint32 maxSize)
 	}
 	else
 	{
-		DEBUG_OUT.println("SFFS: File alread exists!");
+		DEBUG_OUT(println("SFFS: File alread exists!"));
 	}
 	return (SFFS_HANDLE)pFile;
 }
@@ -365,7 +370,7 @@ SFFS_Volume::_getFreeFile()
 	for (uint i=0; i<SFFS_MAX_OPEN_FILES; i++)
 	  if (m_files[i].InUse()==false)
 		return &m_files[i];
-	DEBUG_OUT.println("SFFS: Too many open files!");
+	DEBUG_OUT(println("SFFS: Too many open files!"));
 	return NULL;
 }
 // Locate a file by name on the disk, if it exists.

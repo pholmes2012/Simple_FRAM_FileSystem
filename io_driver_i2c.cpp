@@ -14,6 +14,8 @@
 #include "io_driver.h"
 #include <Wire.h>
 
+//#define DEV_DBG
+
 // This is the maximum number of bytes that can be received in one go (UNO)
 #define MULTIBYTE_BLOCK_RX_LEN 32
 // This is the maximum number of data bytes that can be sent in one go (UNO)

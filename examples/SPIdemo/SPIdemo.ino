@@ -15,6 +15,8 @@ void setup() {
   while(!Serial)
    ;
 
+  g_ffs.debug(true);
+
   // Use pin 10 for CS and a 2 byte address for an 8Kbyte FRAM, make this 3 if your FRAM is over 64Kbytes
   if (g_ffs.begin(10, 2)==false)
   {

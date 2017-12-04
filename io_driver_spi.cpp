@@ -14,6 +14,8 @@
 #include "io_driver.h"
 #include <SPI.h>
 
+//#define DEV_DBG
+
 #define SPI_CMD_READ   0x03  // Read
 #define SPI_CMD_WRITE  0x02  // Write
 #define SPI_CMD_WREN   0x06  // Write Enable
