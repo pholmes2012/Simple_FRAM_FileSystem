@@ -40,40 +40,16 @@
 #define _SFFS_H
 
 #include "Arduino.h"
-#include "Adafruit_FRAM_I2C.h"
-#include "Adafruit_FRAM_SPI.h"
+#include "io_driver.h"
 
-#define SFFS_MAGIC "SF01"
-#define SFFS_MAGIC_INT (uint32)('S'<<24 | 'F'<<16 | '0'<<8 | '1')
-#define SFFS_MAGIC_SIZE 4
+#define SFFS_MAGIC_INT (uint32)('1'<<24 | '0'<<16 | 'S'<<8 | 'F')
 #define SFFS_MAX_OPEN_FILES 4
 #define SFFS_FILE_NAME_LEN 15
 #define SFFS_FILE_NAME_BUFFER_LEN (SFFS_FILE_NAME_LEN+1)
 
-#ifndef uint
-#define uint unsigned int
-#endif
-#ifndef uint8
-#define uint8 uint8_t
-#endif
-#ifndef uint16
-#define uint16 uint16_t
-#endif
-#ifndef uint32
-#define uint32 uint32_t
-#endif
-#ifndef int8
-#define int8 int8_t
-#endif
-#ifndef int16
-#define int16 int16_t
-#endif
-#ifndef int32
-#define int32 int32_t
-#endif
 class SFFS_Volume;
 
-typedef void* SFFS_FP;
+typedef void* SFFS_HANDLE;
 
 class SFFS_Tools
 {
@@ -109,98 +85,17 @@ public:
 	}
 };
 
-//
-// Base class for system I2C or SPI access
-//
-class SFFS_HW
-{
-public:
-	typedef enum {
-		eFRAM_HW_SPI=0,
-		eFRAM_HW_I2C,
-	}eFRAM_HW;
-	virtual eFRAM_HW ID() = 0;
-	virtual bool begin(uint8 beginParam) = 0;
-	virtual bool read(uint32 addr, uint8* pBuf, uint32 count) = 0;
-
-	virtual bool write(uint32 addr, uint8* pBuf, uint32 count) = 0;
-};
-//
-// System I2C access
-//
-class SFFS_HW_I2C : public SFFS_HW
-{
-private:
-	Adafruit_FRAM_I2C m_fram;
-public:
-	virtual eFRAM_HW ID() { return eFRAM_HW_I2C; };
-	virtual bool begin(uint8 i2cAddr)
-	{
-		return m_fram.begin(i2cAddr);
-	}
-	virtual bool read(uint32 addr, uint8* pBuf, uint32 count)
-	{
-		return m_fram.read(addr, pBuf, count);
-	}
-	virtual bool write(uint32 addr, uint8* pBuf, uint32 count)
-	{
-		return m_fram.write(addr, pBuf, count);
-	}
-};
-//
-// System SPI access
-//
-class SFFS_HW_SPI : public SFFS_HW
-{
-private:
-	Adafruit_FRAM_SPI m_fram;
-	int8_t m_clk;
-	int8_t m_miso;
-	int8_t m_mosi;
-	int8_t m_cs;
-public:
-	// HW-SPI constructor
-	SFFS_HW_SPI(int8_t cs=0)
-	{
-		m_cs = cs;
-		m_clk = -1;
-	}
-	// SW-SPI constructor
-	SFFS_HW_SPI(int8_t clk, int8_t miso, int8_t mosi, int8_t cs)
-	{
-		m_clk=clk; m_miso=miso; m_mosi=mosi; m_cs=cs;
-	}
-	virtual eFRAM_HW ID() { return eFRAM_HW_SPI; };
-	virtual bool begin(uint8 addressWidth)
-	{
-		return m_fram.begin(m_cs, addressWidth);
-	}
-	virtual bool read(uint32 addr, uint8* pBuf, uint32 count)
-	{
-		m_fram.read(addr, pBuf, count);
-		return true;
-	}
-	virtual bool write(uint32 addr, uint8* pBuf, uint32 count)
-	{
-		m_fram.writeEnable(true);
-		m_fram.write(addr, pBuf, count);
-		bool bResult = true;
-		m_fram.writeEnable(false);
-		return bResult;
-	}
-};
-
 
 class SFFS_Stream
 {
 private:
 	uint32 m_offset;
-	SFFS_HW* m_pFram;
+	cIO_DRV* m_pFram;
 public:
 	SFFS_Stream() : m_offset(0)
 	{
 	}
-	void Init(SFFS_HW* pFram)
+	void Init(cIO_DRV* pFram)
 	{
 		m_pFram = pFram;
 	}
@@ -214,7 +109,7 @@ public:
 	}
 	uint Read(uint8* pDest, uint32 count)
 	{
-		m_pFram->read(m_offset, pDest, count);
+		count = m_pFram->Read(m_offset, pDest, count);
 		m_offset += count;
 		return count;
 	}
@@ -225,7 +120,7 @@ public:
 	}
 	uint Write(uint8* pSource, uint32 count)
 	{
-		m_pFram->write(m_offset, pSource, count);
+		count = m_pFram->Write(m_offset, pSource, count);
 		m_offset += count;
 		return count;
 	}
@@ -341,13 +236,14 @@ typedef struct {
 }sSFFS_MAGIC;
 
 
+
 class SFFS_Volume
 {
 private:
-	SFFS_HW* m_pFram;
+	cIO_DRV* m_pFram;
 	SFFS_FileHead m_files[SFFS_MAX_OPEN_FILES];
 	sSFFS_MAGIC m_magic;
-	char m_volumeName[12];
+	char m_volumeName[SFFS_FILE_NAME_LEN+1];
 	uint32 m_volumeSize;
 	uint32 m_fileCount;
 	uint32 m_fileMemStart;
@@ -355,13 +251,11 @@ private:
 public:
 	SFFS_Stream m_ios;
 
-	SFFS_Volume(SFFS_HW& fram)
+	SFFS_Volume(cIO_DRV& driver)
 	{
-		m_pFram = &fram;
+		m_pFram = &driver;
 		m_magic.value = 0;
-		m_volumeName[0] = '\0';
 	}
-	bool begin(uint8 beginParam);
 
 	void debug(bool bOnOff);
 
@@ -378,6 +272,17 @@ public:
 		return m_volumeSize;
 	}
 
+	/**************************************************************************/
+	/*!
+	@brief  Get the current FRAM capacity.
+	
+    @returns    The FRAM memory capacity in bytes
+	*/
+	/**************************************************************************/
+	uint32 VolumeSize()
+	{
+		return m_volumeSize;
+	}
 	/**************************************************************************/
 	/*!
 	@brief  Get the current FRAM volume name, if one exists.
@@ -452,7 +357,7 @@ public:
     @returns    A handle to the new (open) file, NULL if failed.
 	*/
 	/**************************************************************************/
-	SFFS_FP fCreate(const char* fileName, uint32 maxSize);
+	SFFS_HANDLE fCreate(const char* fileName, uint32 maxSize);
 	
 	/**************************************************************************/
 	/*!
@@ -466,7 +371,7 @@ public:
     @returns    A handle to the opened file, NULL if failed.
 	*/
 	/**************************************************************************/
-	SFFS_FP fOpen(uint index);
+	SFFS_HANDLE fOpen(uint index);
 
 	/**************************************************************************/
 	/*!
@@ -479,7 +384,7 @@ public:
     @returns    A handle to the opened file, NULL if failed.
 	*/
 	/**************************************************************************/
-	SFFS_FP fOpen(const char* fileName);
+	SFFS_HANDLE fOpen(const char* fileName);
 
 	/**************************************************************************/
 	/*!
@@ -492,7 +397,7 @@ public:
     @returns    The current size of the file
 	*/
 	/**************************************************************************/
-	uint32 fSize(SFFS_FP handle)
+	uint32 fSize(SFFS_HANDLE handle)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		return pFile->Size();
@@ -508,7 +413,7 @@ public:
     @returns    The current maximum possible size of the file
 	*/
 	/**************************************************************************/
-	uint32 fSizeMax(SFFS_FP handle)
+	uint32 fSizeMax(SFFS_HANDLE handle)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		return pFile->SizeMax();
@@ -524,7 +429,7 @@ public:
     @returns    The filename of the file
 	*/
 	/**************************************************************************/
-	const char* fName(SFFS_FP handle)
+	const char* fName(SFFS_HANDLE handle)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		return pFile->Name();
@@ -549,7 +454,7 @@ public:
 				as the file pointer may have reached the end of the file/fSize()
 	*/
 	/**************************************************************************/
-	uint32 fRead(SFFS_FP handle, uint8* pBuf, uint32 count)
+	uint32 fRead(SFFS_HANDLE handle, uint8* pBuf, uint32 count)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		return pFile->Read(pBuf, count);
@@ -579,7 +484,7 @@ public:
 				it could also be 0 if 'offset' is greater than the current file size (fSize())
 	*/
 	/**************************************************************************/
-	uint32 fReadAt(SFFS_FP handle, uint32 offset, uint8* pBuf, uint32 count)
+	uint32 fReadAt(SFFS_HANDLE handle, uint32 offset, uint8* pBuf, uint32 count)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		if (pFile->Seek(offset)==offset)
@@ -605,7 +510,7 @@ public:
 				as the file pointer may have reached the maximum file size (fp == fSizeMax())
 	*/
 	/**************************************************************************/
-	uint32 fWrite(SFFS_FP handle, uint8* pBuf, uint32 count)
+	uint32 fWrite(SFFS_HANDLE handle, uint8* pBuf, uint32 count)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		return pFile->Write(pBuf, count);
@@ -634,7 +539,7 @@ public:
 				it could also be 0 if 'offset' is greater than the current file size (fSize())
 	*/
 	/**************************************************************************/
-	uint32 fWriteAt(SFFS_FP handle, uint32 offset, uint8* pBuf, uint32 count)
+	uint32 fWriteAt(SFFS_HANDLE handle, uint32 offset, uint8* pBuf, uint32 count)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		if (pFile->Seek(offset)==offset)
@@ -658,7 +563,7 @@ public:
 				current file size (fSize())
 	*/
 	/**************************************************************************/
-	uint32 fSeek(SFFS_FP handle, uint32 offset)
+	uint32 fSeek(SFFS_HANDLE handle, uint32 offset)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		return pFile->Seek(offset);
@@ -672,11 +577,13 @@ public:
                 The handle of a currently open file
 	*/
 	/**************************************************************************/
-	void fClose(SFFS_FP handle)
+	void fClose(SFFS_HANDLE handle)
 	{
 		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
 		pFile->Close();
 	}
+protected:
+	bool			init();
 private:
 	bool 			_start();
 	uint8 			_init(uint32 framAddrWidth);
@@ -689,5 +596,20 @@ private:
 
 };
 
+class SFFS_Volume_SPI : public SFFS_Volume
+{
+private:
+	cIO_DRV_SPI m_drv;
+public:
+	SFFS_Volume_SPI() : SFFS_Volume(m_drv)
+	{
+	}
+	bool begin(uint8 csPin, uint8 addrWidth=2)
+	{
+		if (m_drv.Init(csPin, addrWidth))
+			return SFFS_Volume::init();
+		return false;
+	}
+};
 
 #endif //_SFFS_H

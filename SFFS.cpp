@@ -171,21 +171,23 @@ SFFS_FileHead::Save(uint8* pSource, uint32 count)
 ***********************************************************************/
 
 bool
-SFFS_Volume::begin(uint8 beginParam)
+SFFS_Volume::init()
 {
 	bool bRet = false;
 
-	DEBUG_OUT.print("SFFS: param "); DEBUG_OUT.println(beginParam);
+	SFFS_FileHead::m_pVol = this;
+	
+	m_ios.Init(m_pFram);
 
-	if (m_pFram->begin(beginParam))
+	if (_readBack(4, 0xABADDEED)==0xABADDEED)
 	{
-		bRet = _start();
+		m_volumeSize = _volumeSize();
+		(void)_volumeOpen();
+		bRet = true;
 	}
 	else
 	{
-		DEBUG_OUT.println("SFFS: FRAM begin failed.");
-		while(1)
-			;
+		DEBUG_OUT.println("SFFS: Can not read or write FRAM.");
 	}
 	return bRet;
 }
@@ -195,27 +197,6 @@ SFFS_Volume::debug(bool bOnOff)
 {
 	g_bDebug = bOnOff;
 }
-
-bool
-SFFS_Volume::_start()
-{
-	bool bRet = false;
-
-	SFFS_FileHead::m_pVol = this;
-	m_ios.Init(m_pFram);
-
-	if (_readBack(4, 0xABADDEED)==0xABADDEED)
-	{
-		m_volumeSize = _volumeSize();
-		bRet = _volumeOpen();
-	}
-	else
-	{
-		DEBUG_OUT.println("SFFS: Can not read or write FRAM.");
-	}
-	return true;
-}
-
 
 bool
 SFFS_Volume::VolumeCreate(const char* volumeName)
@@ -297,7 +278,7 @@ SFFS_Volume::fList(uint index, char* pBuffer, uint bufferSize)
 	return bRet;
 }
 
-SFFS_FP
+SFFS_HANDLE
 SFFS_Volume::fCreate(const char* fileName, uint32 maxSize)
 {
 	SFFS_FileHead* pFile = NULL;
@@ -325,10 +306,10 @@ SFFS_Volume::fCreate(const char* fileName, uint32 maxSize)
 	{
 		DEBUG_OUT.println("SFFS: File alread exists!");
 	}
-	return (SFFS_FP)pFile;
+	return (SFFS_HANDLE)pFile;
 }
 
-SFFS_FP
+SFFS_HANDLE
 SFFS_Volume::fOpen(uint index)
 {
 	SFFS_FileHead* pHead = _getFreeFile();
@@ -336,10 +317,10 @@ SFFS_Volume::fOpen(uint index)
 	{
 		pHead->Open(index);
 	}
-	return (SFFS_FP)pHead;
+	return (SFFS_HANDLE)pHead;
 }
 
-SFFS_FP
+SFFS_HANDLE
 SFFS_Volume::fOpen(const char* fileName)
 {
 	int index = _findFile(fileName);
@@ -347,7 +328,7 @@ SFFS_Volume::fOpen(const char* fileName)
 	{
 		return fOpen((uint)index);
 	}
-	return (SFFS_FP)NULL;
+	return (SFFS_HANDLE)NULL;
 }
 
 //**************************************************
