@@ -102,6 +102,10 @@ public:
 	{
 		m_offset = offset;
 	}
+	void Skip(uint32 count)
+	{
+		m_offset += count;
+	}
 	uint32 Tell()
 	{
 		return m_offset;
@@ -159,6 +163,7 @@ public:
 	bool Create(const char* name, uint32 dataOffset, uint32 DataSize, uint index);
 	void Open(uint index);
 	void Commit();
+	void CommitWrite();
 	void Close();
 	//
 	// File data operations
@@ -183,6 +188,10 @@ public:
 			m_streamOffset = offset;
 		return Tell();
 	}
+	uint32 Skip(uint32 size)
+	{
+		return Seek(m_streamOffset+size);
+	}
 	uint32 Tell()
 	{
 		return m_streamOffset;
@@ -199,13 +208,10 @@ private:
 	{
 		m_bInUse = bOnOff;
 	}
-	bool HasChanged()
+	void HasChanged(bool bChanged)
 	{
-		return m_bChanged;
-	}
-	void HasChanged(bool bOnOff)
-	{
-		m_bChanged = bOnOff;
+		if (bChanged)
+			CommitWrite();
 	}
 	void seekHead();
 
@@ -234,12 +240,15 @@ private:
 		m_streamOffset += done;
 		return done;
 	}
-	uint32 _hasWritten(uint32 done)
+	bool _hasWritten(uint32 done)
 	{
-		done = _hasRead(done);
+		(void)_hasRead(done);
 		if (m_streamOffset > m_dataWrittenSize)
+		{
 			m_dataWrittenSize = m_streamOffset;
-		return done;
+			return true;
+		}
+		return false;
 	}
 };
 

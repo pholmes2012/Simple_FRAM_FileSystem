@@ -89,7 +89,6 @@ SFFS_FileHead::Open(uint index)
 	m_pVol->m_ios.Read((uint8*)&m_dataMaxSize, sizeof(m_dataMaxSize));
 	m_pVol->m_ios.Read((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
 	m_streamOffset = m_dataWrittenSize;
-	HasChanged(false);
 	InUse(true);
 }
 
@@ -101,16 +100,20 @@ SFFS_FileHead::Commit()
 	m_pVol->m_ios.Write((uint8*)&m_dataOffset, sizeof(m_dataOffset));
 	m_pVol->m_ios.Write((uint8*)&m_dataMaxSize, sizeof(m_dataMaxSize));
 	m_pVol->m_ios.Write((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
-	HasChanged(false);
+}
+void
+SFFS_FileHead::CommitWrite()
+{
+	seekHead();
+	m_pVol->m_ios.Skip(sizeof(m_name));
+	m_pVol->m_ios.Skip(sizeof(m_dataOffset));
+	m_pVol->m_ios.Skip(sizeof(m_dataMaxSize));
+	m_pVol->m_ios.Write((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
 }
 
 void
 SFFS_FileHead::Close()
 {
-	if (HasChanged())
-	{
-		Commit();
-	}
 	InUse(false);
 }
 
@@ -156,12 +159,12 @@ SFFS_FileHead::Write(uint8* pSource, uint32 count)
 	_showFH();
 #endif
 	uint32 done = m_pVol->m_ios.Write(m_dataOffset+m_streamOffset, pSource, boundWrite(m_streamOffset, count));
-	done = _hasWritten(done);
+	bool bChanged = _hasWritten(done);
 	DEBUG_OUT(print("WriteDone: ")); DEBUG_OUT(println(done));
 #ifdef DEV_DBG
 	_showFH();
 #endif
-	HasChanged(true);
+	HasChanged(bChanged);
 	return done;
 }
 
