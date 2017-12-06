@@ -1,6 +1,6 @@
 #include <SFFS.h>
 
-#define FORCE_NEW_VOLUME false // Set this to true if you want it to create a new volume regarless
+#define FORCE_NEW_VOLUME false // Set this to true if you want it to create a new volume regardless
 
 SFFS_Volume_SPI g_ffs;  // SPI FRAM FileSystem instance
 

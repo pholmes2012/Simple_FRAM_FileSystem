@@ -24,6 +24,17 @@ bool g_bDebug = false;
 #define DEBUG_DEV(s)
 #endif
 
+static
+SFFS_FileHead m_files[SFFS_MAX_OPEN_FILES];
+
+void 
+SFFS_Volume::_printDbgNum(uint32 num)
+{
+	DEBUG_OUT(print("*** num = 0x"));
+	DEBUG_OUT(println(num, HEX));
+	m_files[0]._showFH();
+
+}
 /**********************************************************************
 //
 // CFS_FILE_HEAD
@@ -35,8 +46,8 @@ SFFS_Volume* SFFS_FileHead::m_pVol = NULL;
 bool
 SFFS_FileHead::Create(const char* name, uint32 dataOffset, uint32 dataSize, uint index)
 {
-	m_bInUse = SFFS_Tools::strcpy(m_name, name, SFFS_FILE_NAME_LEN);
-	if (m_bInUse)
+	InUse(SFFS_Tools::strcpy(m_name, name, sizeof(m_name)));
+	if (InUse())
 	{
 		m_index = index;
 		m_dataOffset = dataOffset;
@@ -51,7 +62,7 @@ SFFS_FileHead::Create(const char* name, uint32 dataOffset, uint32 dataSize, uint
 	{
 		DEBUG_OUT(print("SFFS: File name too long or incorrect!"));
 	}
-	return m_bInUse;
+	return InUse();
 }
 
 //static
@@ -78,8 +89,8 @@ SFFS_FileHead::Open(uint index)
 	m_pVol->m_ios.Read((uint8*)&m_dataMaxSize, sizeof(m_dataMaxSize));
 	m_pVol->m_ios.Read((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
 	m_streamOffset = m_dataWrittenSize;
-	m_bChanged = false;
-	m_bInUse = true;
+	HasChanged(false);
+	InUse(true);
 }
 
 void
@@ -90,17 +101,17 @@ SFFS_FileHead::Commit()
 	m_pVol->m_ios.Write((uint8*)&m_dataOffset, sizeof(m_dataOffset));
 	m_pVol->m_ios.Write((uint8*)&m_dataMaxSize, sizeof(m_dataMaxSize));
 	m_pVol->m_ios.Write((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
-	m_bChanged = false;
+	HasChanged(false);
 }
 
 void
 SFFS_FileHead::Close()
 {
-	if (m_bChanged)
+	if (HasChanged())
 	{
 		Commit();
 	}
-	m_bInUse = false;
+	InUse(false);
 }
 
 uint32
@@ -123,7 +134,9 @@ SFFS_FileHead::Read(uint8* pDest, uint32 count)
 void
 SFFS_FileHead::_showFH()
 {
-	DEBUG_OUT(print("DOff "));
+	DEBUG_OUT(print(" idx "));
+	DEBUG_OUT(print(m_index));
+	DEBUG_OUT(print(" DOff "));
 	DEBUG_OUT(print(m_dataOffset));
 	DEBUG_OUT(print(", fp "));
 	DEBUG_OUT(print(m_streamOffset));
@@ -148,7 +161,7 @@ SFFS_FileHead::Write(uint8* pSource, uint32 count)
 #ifdef DEV_DBG
 	_showFH();
 #endif
-	m_bChanged = true;
+	HasChanged(true);
 	return done;
 }
 
@@ -156,16 +169,14 @@ uint32
 SFFS_FileHead::Load(uint8* pDest)
 {
 	m_streamOffset = 0;
-	uint32 done = Read(pDest, Size());
-	return (done==Size());
+	return Read(pDest, Size());
 }
 
 uint32
 SFFS_FileHead::Save(uint8* pSource, uint32 count)
 {
 	m_streamOffset = 0;
-	uint32 done = Write(pSource, count);
-	return (done==count);
+	return Write(pSource, count);
 }
 
 
@@ -180,14 +191,13 @@ SFFS_Volume::init()
 {
 	bool bRet = false;
 
-	SFFS_FileHead::m_pVol = this;
-	
-	m_ios.Init(m_pFram);
-
 	if (_readBack(4, 0xABADDEED)==0xABADDEED)
 	{
 		m_volumeSize = _volumeSize();
-		(void)_volumeOpen();
+		if (_volumeOpen()==false)
+		{
+			DEBUG_OUT(println("SFFS: No volume found."));
+		}
 		bRet = true;
 	}
 	else
@@ -206,7 +216,7 @@ SFFS_Volume::debug(bool bOnOff)
 bool
 SFFS_Volume::VolumeCreate(const char* volumeName)
 {
-	m_magic.value = SFFS_MAGIC_INT;
+	m_magic = SFFS_MAGIC_INT;
 	SFFS_Tools::strcpy(m_volumeName, volumeName, sizeof(m_volumeName));
 	m_fileCount = 0;
 	m_dataMemStart = m_volumeSize;
@@ -225,13 +235,13 @@ SFFS_Volume::_volumeOpen()
 
 	m_ios.Seek(0);
 	m_ios.Read((uint8*)&m_magic, sizeof(m_magic));
-	if (m_magic.value == SFFS_MAGIC_INT)
+	if (m_magic == SFFS_MAGIC_INT)
 	{
 		m_ios.Read((uint8*)&m_volumeName, sizeof(m_volumeName));
 		m_ios.Read((uint8*)&m_fileCount, sizeof(m_fileCount));
 		m_ios.Read((uint8*)&m_dataMemStart, sizeof(m_dataMemStart));
 		m_ios.Read((uint8*)&m_magic, sizeof(m_magic));
-		if (m_magic.value == SFFS_MAGIC_INT)
+		if (m_magic == SFFS_MAGIC_INT)
 		{
 			DEBUG_OUT(print("SFFS: Volume '")); 
 			DEBUG_OUT(print(m_volumeName)); 
@@ -339,16 +349,16 @@ SFFS_Volume::fOpen(const char* fileName)
 //**************************************************
 // Backup, write, read-back then restore, then compare
 //**************************************************
-int32
-SFFS_Volume::_readBack(uint32 addr, int32 data)
+uint32
+SFFS_Volume::_readBack(uint32 addr, uint32 data)
 {
-  int32 check = !data;
-  int32 wrapCheck, backup;
-  m_ios.Read(addr, (uint8*)&backup, sizeof(int32));
-  m_ios.Write(addr, (uint8*)&data, sizeof(int32));
-  m_ios.Read(addr, (uint8*)&check, sizeof(int32));
-  m_ios.Read(0, (uint8_t*)&wrapCheck, sizeof(int32));
-  m_ios.Write(addr, (uint8*)&backup, sizeof(int32));
+  uint32 check = !data;
+  uint32 wrapCheck, backup;
+  m_ios.Read(addr, (uint8*)&backup, sizeof(uint32));
+  m_ios.Write(addr, (uint8*)&data, sizeof(uint32));
+  m_ios.Read(addr, (uint8*)&check, sizeof(uint32));
+  m_ios.Read(0, (uint8_t*)&wrapCheck, sizeof(uint32));
+  m_ios.Write(addr, (uint8*)&backup, sizeof(uint32));
   // Check for warparound, address 0 will work anyway
   if (wrapCheck==check)
     check = 0;
@@ -357,19 +367,21 @@ SFFS_Volume::_readBack(uint32 addr, int32 data)
 uint32
 SFFS_Volume::_volumeSize()
 {
-	int32 memSize = 0;
+	uint32 memSize = 0;
 	// Step through FRAM until we hit a wraparound to get the size
 	while (_readBack(memSize, memSize) == memSize)
 		memSize += 256;
-	return (uint32)memSize;
+	return memSize;
 }
-// Locate a file by name on the disk, if it exists.
+// Find a free slot to open a file with.
 SFFS_FileHead*
 SFFS_Volume::_getFreeFile()
 {
 	for (uint i=0; i<SFFS_MAX_OPEN_FILES; i++)
-	  if (m_files[i].InUse()==false)
-		return &m_files[i];
+	{
+		if (m_files[i].InUse()==false)
+			return &m_files[i];
+	}
 	DEBUG_OUT(println("SFFS: Too many open files!"));
 	return NULL;
 }
@@ -377,13 +389,13 @@ SFFS_Volume::_getFreeFile()
 int
 SFFS_Volume::_findFile(const char* fileName)
 {
-	char name[SFFS_FILE_NAME_LEN+1];
+	char name[SFFS_FILE_NAME_BUFFER_LEN];
 	uint32 offset = m_fileMemStart;
 
 	for (uint i=0; i<m_fileCount; i++)
 	{
 		m_ios.Seek(offset);
-		m_ios.Read(name, sizeof(name));
+		m_ios.Read((uint8*)name, sizeof(name));
 		if (SFFS_Tools::strcmp(name, fileName))
 		{
 			// Found it

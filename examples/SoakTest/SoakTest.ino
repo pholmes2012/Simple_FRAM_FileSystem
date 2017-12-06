@@ -191,6 +191,15 @@ void setup(void)
 	Serial.println("");
 	Serial.println("******");
 	Serial.println("");
+	
+	Serial.println("Dir list...");
+	uint Count = g_ffs.fCount();
+	for (int i=0; i<Count; i++)
+	{
+		char buffer[SFFS_FILE_NAME_BUFFER_LEN];
+		g_ffs.fList(i, buffer, sizeof(buffer));
+		Serial.print(i+1); Serial.print(" '"); Serial.print(buffer); Serial.println("'");
+	}
   }
 }
 
@@ -198,6 +207,7 @@ uint32_t loopCount = 0;
 
 void loop(void)
 {
+/*
 	if ( doATransfer( rand()%g_fileCount,rand()%g_fileCount,10+(rand()%90), 1+(rand()%(sizeof(g_buffer)-1)) ) == false)
 	{
 		Serial.print("FAIL-TRAN: On loop #"); Serial.println(loopCount);
@@ -210,5 +220,6 @@ void loop(void)
 		while (1)
 		;
 	}
+*/
 	loopCount++;
 }

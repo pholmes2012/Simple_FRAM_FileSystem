@@ -39,7 +39,6 @@
 #ifndef _SFFS_H
 #define _SFFS_H
 
-#include "Arduino.h"
 #include "io_driver.h"
 
 #define SFFS_MAGIC_INT (uint32)('1'<<24 | '0'<<16 | 'S'<<8 | 'F')
@@ -58,7 +57,7 @@ public:
 	static bool strcpy(char* pDest, const char* pSrc, uint maxLen)
 	{
 		uint len = 0;
-		while (len<maxLen-1 && pSrc[len] != '\0')
+		while (len<maxLen && pSrc[len] != '\0')
 		{
 			pDest[len] = pSrc[len];
 			len++;
@@ -90,14 +89,14 @@ class SFFS_Stream
 {
 private:
 	uint32 m_offset;
-	cIO_DRV* m_pFram;
+	cIO_DRV* m_pDrv;
 public:
 	SFFS_Stream() : m_offset(0)
 	{
 	}
-	void Init(cIO_DRV* pFram)
+	void Init(cIO_DRV* pDriver)
 	{
-		m_pFram = pFram;
+		m_pDrv = pDriver;
 	}
 	void Seek(uint32 offset)
 	{
@@ -109,7 +108,7 @@ public:
 	}
 	uint Read(uint8* pDest, uint32 count)
 	{
-		count = m_pFram->Read(m_offset, pDest, count);
+		count = m_pDrv->Read(m_offset, pDest, count);
 		m_offset += count;
 		return count;
 	}
@@ -120,7 +119,7 @@ public:
 	}
 	uint Write(uint8* pSource, uint32 count)
 	{
-		count = m_pFram->Write(m_offset, pSource, count);
+		count = m_pDrv->Write(m_offset, pSource, count);
 		m_offset += count;
 		return count;
 	}
@@ -134,22 +133,26 @@ public:
 
 class SFFS_FileHead
 {
-public:
-	static SFFS_Volume* m_pVol;
 private:
-	bool m_bInUse;
-	bool m_bChanged;
 	uint m_index;
+	bool m_bChanged;
+	bool m_bInUse;
 	uint32 m_streamOffset;
 	uint32 m_dataOffset;
 	uint32 m_dataWrittenSize;
 	uint32 m_dataMaxSize;
-	char m_name[SFFS_FILE_NAME_LEN+1];
+	char m_name[SFFS_FILE_NAME_BUFFER_LEN];
 public:
-	SFFS_FileHead() : m_bInUse(false)
-	{
-	}
+	static SFFS_Volume* m_pVol;
 
+	SFFS_FileHead()
+	{
+		InUse(false);
+	}
+	bool InUse()
+	{
+		return m_bInUse;
+	}
 	//
 	// File header operations
 	//
@@ -157,10 +160,6 @@ public:
 	void Open(uint index);
 	void Commit();
 	void Close();
-	bool InUse()
-	{
-		return m_bInUse;
-	}
 	//
 	// File data operations
 	//
@@ -192,7 +191,22 @@ public:
 	uint32 Write(uint8* pSource, uint32 count);
 	uint32 Load(uint8* pDest);
 	uint32 Save(uint8* pSource, uint32 count);
+
+	void _showFH();
+
 private:
+	void InUse(bool bOnOff)
+	{
+		m_bInUse = bOnOff;
+	}
+	bool HasChanged()
+	{
+		return m_bChanged;
+	}
+	void HasChanged(bool bOnOff)
+	{
+		m_bChanged = bOnOff;
+	}
 	void seekHead();
 
 	void seek(uint32 offset)
@@ -227,23 +241,14 @@ private:
 			m_dataWrittenSize = m_streamOffset;
 		return done;
 	}
-	void _showFH();
 };
-
-typedef struct {
-	uint32 value;
-	uint32 chars[4];
-}sSFFS_MAGIC;
-
 
 
 class SFFS_Volume
 {
 private:
-	cIO_DRV* m_pFram;
-	SFFS_FileHead m_files[SFFS_MAX_OPEN_FILES];
-	sSFFS_MAGIC m_magic;
-	char m_volumeName[SFFS_FILE_NAME_LEN+1];
+	char m_volumeName[SFFS_FILE_NAME_BUFFER_LEN];
+	uint32 m_magic;
 	uint32 m_volumeSize;
 	uint32 m_fileCount;
 	uint32 m_fileMemStart;
@@ -253,8 +258,9 @@ public:
 
 	SFFS_Volume(cIO_DRV& driver)
 	{
-		m_pFram = &driver;
-		m_magic.value = 0;
+		SFFS_FileHead::m_pVol = this;
+		m_ios.Init(&driver);
+		m_magic = 0;
 	}
 
 	void debug(bool bOnOff);
@@ -292,7 +298,7 @@ public:
 	/**************************************************************************/
 	const char* VolumeName()
 	{
-		return (m_magic.value == SFFS_MAGIC_INT) ? m_volumeName : NULL;
+		return (m_magic == SFFS_MAGIC_INT) ? m_volumeName : NULL;
 	}
 	/**************************************************************************/
 	/*!
@@ -589,11 +595,11 @@ private:
 	uint8 			_init(uint32 framAddrWidth);
 	int 			_findFile(const char* fileName);
 	SFFS_FileHead* 	_getFreeFile();
-	int32 			_readBack(uint32 addr, int32 data);
+	uint32 			_readBack(uint32 addr, uint32 data);
 	uint32 			_volumeSize();
 	bool 			_volumeOpen();
 	void 			_volumeCommit();
-
+	void			_printDbgNum(uint32 num);
 };
 
 class SFFS_Volume_SPI : public SFFS_Volume
@@ -607,7 +613,7 @@ public:
 	bool begin(uint8 csPin, uint8 addrWidth=2)
 	{
 		if (m_drv.Init(csPin, addrWidth))
-			return SFFS_Volume::init();
+			return init();
 		return false;
 	}
 };
@@ -623,7 +629,7 @@ public:
 	bool begin(uint8 hwAddr)
 	{
 		if (m_drv.Init(hwAddr))
-			return SFFS_Volume::init();
+			return init();
 		return false;
 	}
 };

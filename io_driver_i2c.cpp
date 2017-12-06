@@ -14,11 +14,11 @@
 #include "io_driver.h"
 #include <Wire.h>
 
-//#define DEV_DBG
+#define DEV_DBG
 
 // This is the maximum number of bytes that can be received in one go (UNO)
 #define MULTIBYTE_BLOCK_RX_LEN 32
-// This is the maximum number of data bytes that can be sent in one go (UNO)
+// This is the maximum number of bytes that can be sent in one go (UNO)
 #define MULTIBYTE_BLOCK_TX_LEN 30
 // Page select bit (A16), MSB of 17 bit address
 #define I2C_PAGE_BIT 0x01 
@@ -59,11 +59,11 @@ cIO_DRV_I2C::Read(uint32 offset, uint8* pBuf, uint32 byteCount)
 		while (Wire.available())
 		{
 			pBuf[hasRead++] = Wire.read();
+			toRead--;
 		}
-		toRead -= block;
 	}
 #ifdef DEV_DBG
-	if (hasRead != count)
+	if (hasRead != byteCount)
 	{
 		// Something went wrong...
 		Serial.print("I2C FRAM Read failed, ");
@@ -94,7 +94,7 @@ cIO_DRV_I2C::Write(uint32 offset, const uint8* pBuf, uint32 byteCount)
 		Wire.endTransmission();
 	}
 #ifdef DEV_DBG
-	if (hasWritten != count)
+	if (hasWritten != byteCount)
 	{
 		// Something went wrong...
 		Serial.print("I2C FRAM Write failed, ");
