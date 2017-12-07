@@ -88,15 +88,13 @@ public:
 class SFFS_Stream
 {
 private:
+	cIO_DRV& m_driver;
 	uint32 m_offset;
-	cIO_DRV* m_pDrv;
 public:
-	SFFS_Stream() : m_offset(0)
+	SFFS_Stream(cIO_DRV& driver) : 
+				m_driver(driver), 
+				m_offset(0)
 	{
-	}
-	void Init(cIO_DRV* pDriver)
-	{
-		m_pDrv = pDriver;
 	}
 	void Seek(uint32 offset)
 	{
@@ -112,7 +110,7 @@ public:
 	}
 	uint Read(uint8* pDest, uint32 count)
 	{
-		count = m_pDrv->Read(m_offset, pDest, count);
+		count = m_driver.Read(m_offset, pDest, count);
 		m_offset += count;
 		return count;
 	}
@@ -123,7 +121,7 @@ public:
 	}
 	uint Write(uint8* pSource, uint32 count)
 	{
-		count = m_pDrv->Write(m_offset, pSource, count);
+		count = m_driver.Write(m_offset, pSource, count);
 		m_offset += count;
 		return count;
 	}
@@ -135,9 +133,10 @@ public:
 };
 
 
-class SFFS_FileHead
+class SFFS_File
 {
 private:
+	SFFS_Stream* m_pStream;
 	uint m_index;
 	bool m_bChanged;
 	bool m_bInUse;
@@ -147,72 +146,85 @@ private:
 	uint32 m_dataMaxSize;
 	char m_name[SFFS_FILE_NAME_BUFFER_LEN];
 public:
-	static SFFS_Volume* m_pVol;
+	static uint32 m_fileMemStart;
+	static uint32 m_headSize;
 
-	SFFS_FileHead()
+	SFFS_File() : m_pStream(NULL)
 	{
-		InUse(false);
+		inUse(false);
 	}
 	bool InUse()
 	{
 		return m_bInUse;
 	}
 	//
-	// File header operations
+	// File operations
 	//
-	bool Create(const char* name, uint32 dataOffset, uint32 DataSize, uint index);
-	void Open(uint index);
-	void Commit();
-	void CommitWrite();
-	void Close();
-	//
-	// File data operations
-	//
-	static uint HeadSize();
-
-	uint32 Size()
+	uint32 fSize()
 	{
 		return m_dataWrittenSize;
 	}
-	const char* Name()
-	{
-		return m_name;
-	}
-	uint32 SizeMax()
+	uint32 fSizeMax()
 	{
 		return m_dataMaxSize;
 	}
-	uint32 Seek(uint32 offset)
+	const char* fName()
+	{
+		return m_name;
+	}
+	uint32 fRead(uint8* pBuf, uint32 count);
+	uint32 fReadAt(uint32 offset, uint8* pBuf, uint32 count)
+	{
+		if (fSeek(offset)==offset)
+			return fRead(pBuf, count);
+		return 0;
+	}
+	uint32 fWrite(uint8* pBuf, uint32 count);
+	uint32 fWriteAt(uint32 offset, uint8* pBuf, uint32 count)
+	{
+		if (fSeek(offset)==offset)
+			return fWrite(pBuf, count);
+		return 0;
+	}
+	uint32 fSeek(uint32 offset)
 	{
 		if (checkFP(offset))
 			m_streamOffset = offset;
-		return Tell();
+		return fTell();
 	}
-	uint32 Skip(uint32 size)
-	{
-		return Seek(m_streamOffset+size);
-	}
-	uint32 Tell()
+	uint32 fTell()
 	{
 		return m_streamOffset;
 	}
-	uint32 Read(uint8* pDest, uint32 count);
-	uint32 Write(uint8* pSource, uint32 count);
-	uint32 Load(uint8* pDest);
-	uint32 Save(uint8* pSource, uint32 count);
+	void fClose()
+	{
+		inUse(false);
+	}
+
+public:
+	void init(SFFS_Stream& stream)
+	{
+		m_pStream = &stream;
+	}
+	bool create(const char* name, uint32 dataOffset, uint32 DataSize, uint index);
+	void open(uint index);
+
+private:
+	void commit();
+	void commitWrite();
 
 	void _showFH();
 
-private:
-	void InUse(bool bOnOff)
+	void inUse(bool bOnOff)
 	{
 		m_bInUse = bOnOff;
 	}
-	void HasChanged(bool bChanged)
+	void hasChanged(bool bChanged)
 	{
 		if (bChanged)
-			CommitWrite();
+			commitWrite();
 	}
+
 	void seekHead();
 
 	void seek(uint32 offset)
@@ -252,358 +264,77 @@ private:
 	}
 };
 
+class SFFS_FileList
+{
+private:
+	SFFS_File m_list[SFFS_MAX_OPEN_FILES];
+public:
+	SFFS_FileList(SFFS_Stream& stream)
+	{
+		for (uint i=0; i<SFFS_MAX_OPEN_FILES; i++)
+			m_list[i].init(stream);
+	}
+	SFFS_File* New()
+	{
+		for (uint i=0; i<SFFS_MAX_OPEN_FILES; i++)
+			if (m_list[i].InUse()==false)
+				return &m_list[i];
+		return NULL;
+	}
+};
+
 
 class SFFS_Volume
 {
 private:
+	SFFS_Stream m_ios;
+	SFFS_FileList m_files;
 	char m_volumeName[SFFS_FILE_NAME_BUFFER_LEN];
 	uint32 m_magic;
 	uint32 m_volumeSize;
 	uint32 m_fileCount;
-	uint32 m_fileMemStart;
 	uint32 m_dataMemStart;
 public:
-	SFFS_Stream m_ios;
 
-	SFFS_Volume(cIO_DRV& driver)
+	SFFS_Volume(cIO_DRV& driver) : 
+			m_ios(driver),
+			m_files(m_ios),
+			m_magic(0)
 	{
-		SFFS_FileHead::m_pVol = this;
-		m_ios.Init(&driver);
-		m_magic = 0;
 	}
 
 	void debug(bool bOnOff);
 
-	uint32 HeadOffset()
-	{
-		return 0;
-	}
-	uint32 FileHeadOffset()
-	{
-		return m_fileMemStart;
-	}
-	uint32 DataStartOffset()
-	{
-		return m_volumeSize;
-	}
-
-	/**************************************************************************/
-	/*!
-	@brief  Get the current FRAM capacity.
-	
-    @returns    The FRAM memory capacity in bytes
-	*/
-	/**************************************************************************/
+	//
+	// Volume operations
+	//
+	bool VolumeCreate(const char* volumeName);
 	uint32 VolumeSize()
 	{
 		return m_volumeSize;
 	}
-	/**************************************************************************/
-	/*!
-	@brief  Get the current FRAM volume name, if one exists.
-	
-    @returns    The current volume name, NULL if none exists
-	*/
-	/**************************************************************************/
 	const char* VolumeName()
 	{
 		return (m_magic == SFFS_MAGIC_INT) ? m_volumeName : NULL;
 	}
-	/**************************************************************************/
-	/*!
-	@brief  Create a new volume on the FRAM, this will effectively erase
-	any volume and its files already on there.
-
-	@params[in] volumeName
-                The new volume name, must be no longer than
-				SFFS_FILE_NAME_LEN, not including the trailing 0.
-
-    @returns    true if success false if failed
-	*/
-	/**************************************************************************/
-	bool VolumeCreate(const char* volumeName);
-
-	//
-	// Directory operations
-	//
-
-	/**************************************************************************/
-	/*!
-	@brief  Get the current file count.
-
-    @returns    Current file count
-	*/
-	/**************************************************************************/
-	uint fCount()
-	{
-		return m_fileCount;
-	}
-	
-	/**************************************************************************/
-	/*!
-	@brief  Get the filename of a file.
-
-    @params[in] index
-                The index of the file
-    @params[in] pBuffer
-                A buffer to receive the filename
-    @params[in] bufferSize
-                Size of the buffer in bytes, must be at least SFFS_FILE_NAME_BUFFER_LEN
-
-    @returns    true if success false if failed
-	*/
-	/**************************************************************************/
-	bool fList(uint index, char* pBuffer, uint bufferSize);
-
 	//
 	// File operations
 	//
-
-	/**************************************************************************/
-	/*!
-	@brief  Create a new file.
-
-    @params[in] fileName
-                The filename for the new file, must not already exist.
-    @params[in] maxSize
-                The maximum possible size for the new file. The file will
-				be created with 0 size, this is the maximum size it can grow to.
-
-    @returns    A handle to the new (open) file, NULL if failed.
-	*/
-	/**************************************************************************/
-	SFFS_HANDLE fCreate(const char* fileName, uint32 maxSize);
-	
-	/**************************************************************************/
-	/*!
-	@brief  Open a file via its index in the filesystem. This
-	corresponds with the filenames output by fList().
-	Note: A file can not be opened more than once simultaniusly.
-
-    @params[in] index
-                An 0 based index to a file in the filesystem, must be less than fCount()
-
-    @returns    A handle to the opened file, NULL if failed.
-	*/
-	/**************************************************************************/
-	SFFS_HANDLE fOpen(uint index);
-
-	/**************************************************************************/
-	/*!
-	@brief  Open a file via its filename. The file must exist.
-	Note: A file can not be opened more than once simultaniusly.
-
-    @params[in] fileName
-                Filename of the file to be opened
-
-    @returns    A handle to the opened file, NULL if failed.
-	*/
-	/**************************************************************************/
-	SFFS_HANDLE fOpen(const char* fileName);
-
-	/**************************************************************************/
-	/*!
-	@brief  Get the current size of an open file, this is the already
-	written to size and not the maximum possible size.
-
-    @params[in] handle
-                The handle of a currently open file
-
-    @returns    The current size of the file
-	*/
-	/**************************************************************************/
-	uint32 fSize(SFFS_HANDLE handle)
+	uint FileCount()
 	{
-		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
-		return pFile->Size();
+		return m_fileCount;
 	}
+	bool FileList(uint index, char* pBuffer, uint bufferSize);
+	SFFS_File* FileCreate(const char* fileName, uint32 maxSize);
+	SFFS_File* FileOpen(uint index);
+	SFFS_File* FileOpen(const char* fileName);
 
-	/**************************************************************************/
-	/*!
-	@brief  Get the maximum possible size of an open file.
-
-    @params[in] handle
-                The handle of a currently open file
-
-    @returns    The current maximum possible size of the file
-	*/
-	/**************************************************************************/
-	uint32 fSizeMax(SFFS_HANDLE handle)
-	{
-		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
-		return pFile->SizeMax();
-	}
-
-	/**************************************************************************/
-	/*!
-	@brief  Get the filename of an open file.
-
-    @params[in] handle
-                The handle of a currently open file
-
-    @returns    The filename of the file
-	*/
-	/**************************************************************************/
-	const char* fName(SFFS_HANDLE handle)
-	{
-		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
-		return pFile->Name();
-	}
-
-	/**************************************************************************/
-	/*!
-	@brief  Read bytes from a file into a buffer, this reads
-	from the current file pointer of this open file.
-
-    @params[in] handle
-                The handle of a currently open file
-
-	@params[in] pBuf
-                A buffer to receive the data, it is the callers responsibility
-				to ensure this buffer is large enough to receive the data
-
-	@params[in] count
-                The number of the bytes to read from the file
-
-    @returns    The actual number of bytes read, this could be less than 'count'
-				as the file pointer may have reached the end of the file/fSize()
-	*/
-	/**************************************************************************/
-	uint32 fRead(SFFS_HANDLE handle, uint8* pBuf, uint32 count)
-	{
-		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
-		return pFile->Read(pBuf, count);
-	}
-
-	/**************************************************************************/
-	/*!
-	@brief  Read bytes from a file at a specified location into a buffer, this sets
-	the current file pointer to 'offset' before reading. This will not restore the
-	original file pointer after use.
-
-    @params[in] handle
-                The handle of a currently open file
-
-	@params[in] offset
-                An offset into the file relative to 0 (same as fSeek(offset))
-
-	@params[in] pBuf
-                A buffer to receive the data, it is the callers responsibility
-				to ensure this buffer is large enough to receive the data
-
-	@params[in] count
-                The number of the bytes to read from the file
-
-    @returns    The actual number of bytes read, this could be less than 'count'
-				as the file pointer may have reached the end of the file (fp == fSize()),
-				it could also be 0 if 'offset' is greater than the current file size (fSize())
-	*/
-	/**************************************************************************/
-	uint32 fReadAt(SFFS_HANDLE handle, uint32 offset, uint8* pBuf, uint32 count)
-	{
-		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
-		if (pFile->Seek(offset)==offset)
-			return fRead(handle, pBuf, count);
-		return 0;
-	}
-
-	/**************************************************************************/
-	/*!
-	@brief  Write bytes from a buffer into a file, this writes
-	from the current file pointer of this open file.
-
-    @params[in] handle
-                The handle of a currently open file
-
-	@params[in] pBuf
-                A buffer to constaining the data to be written.
-
-	@params[in] count
-                The number of the bytes to write to the file
-
-    @returns    The actual number of bytes written, this could be less than 'count'
-				as the file pointer may have reached the maximum file size (fp == fSizeMax())
-	*/
-	/**************************************************************************/
-	uint32 fWrite(SFFS_HANDLE handle, uint8* pBuf, uint32 count)
-	{
-		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
-		return pFile->Write(pBuf, count);
-	}
-
-	/**************************************************************************/
-	/*!
-	@brief  Write bytes to a file at a specified file location from a buffer, this sets
-	the current file pointer to 'offset' before writing. This will not restore the
-	original file pointer after use.
-
-    @params[in] handle
-                The handle of a currently open file
-
-	@params[in] offset
-                An offset into the file relative to 0 (same as fSeek(offset))
-
-	@params[in] pBuf
-                A buffer cotaining the data to send.
-
-	@params[in] count
-                The number of the bytes to write to the file
-
-    @returns    The actual number of bytes written, this could be less than 'count'
-				as the file pointer may have reached the maximum file size (fp == fSizeMax()),
-				it could also be 0 if 'offset' is greater than the current file size (fSize())
-	*/
-	/**************************************************************************/
-	uint32 fWriteAt(SFFS_HANDLE handle, uint32 offset, uint8* pBuf, uint32 count)
-	{
-		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
-		if (pFile->Seek(offset)==offset)
-			return fWrite(handle, pBuf, count);
-		return 0;
-	}
-
-	/**************************************************************************/
-	/*!
-	@brief  Set the current file pointer to a specified location.
-
-    @params[in] handle
-                The handle of a currently open file
-
-	@params[in] offset
-                An offset relative to 0 to set the current file poiter to.
-
-    @returns    The current file pointer, this will either be the same as
-				'offset' if it succeeded or it will be unchanged indicating
-				failure, failure could happen if 'offset' is greater than the 
-				current file size (fSize())
-	*/
-	/**************************************************************************/
-	uint32 fSeek(SFFS_HANDLE handle, uint32 offset)
-	{
-		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
-		return pFile->Seek(offset);
-	}
-
-	/**************************************************************************/
-	/*!
-	@brief  Close the currently open file.
-
-    @params[in] handle
-                The handle of a currently open file
-	*/
-	/**************************************************************************/
-	void fClose(SFFS_HANDLE handle)
-	{
-		SFFS_FileHead* pFile = (SFFS_FileHead*)handle;
-		pFile->Close();
-	}
 protected:
 	bool			init();
 private:
 	bool 			_start();
 	uint8 			_init(uint32 framAddrWidth);
 	int 			_findFile(const char* fileName);
-	SFFS_FileHead* 	_getFreeFile();
 	uint32 			_readBack(uint32 addr, uint32 data);
 	uint32 			_volumeSize();
 	bool 			_volumeOpen();

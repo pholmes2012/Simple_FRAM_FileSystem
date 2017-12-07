@@ -80,7 +80,7 @@ void listFiles()
   Serial.println("");
   Serial.println("List Files:");
   // List all files...
-  uint FileCount = g_ffs.fCount();
+  uint FileCount = g_ffs.FileCount();
   for (uint i=0; i<FileCount; i++)
   {
     showFile(i);
@@ -90,22 +90,22 @@ void listFiles()
 
 void showFile(uint fileIndex)
 {
-  SFFS_HANDLE handle = g_ffs.fOpen(fileIndex);
-  if (handle != NULL)
+  SFFS_File* pFile = g_ffs.FileOpen(fileIndex);
+  if (pFile != NULL)
   {
     Serial.print(" '");
-    Serial.print(g_ffs.fName(handle));
+    Serial.print(pFile->fName());
     Serial.print("', size ");
-    Serial.println(g_ffs.fSize(handle));
+    Serial.println(pFile->fSize());
     
-    g_ffs.fClose(handle);
+    pFile->fClose();
   }
 }
 
 void writeToFile(const char* name, uint32_t nBytesToWrite)
 {
-  SFFS_HANDLE handle = g_ffs.fOpen(name);
-  if (handle != NULL) 
+  SFFS_File* pFile = g_ffs.FileOpen(name);
+  if (pFile != NULL) 
   {
     Serial.print("Write ");
     Serial.print(nBytesToWrite);
@@ -114,21 +114,22 @@ void writeToFile(const char* name, uint32_t nBytesToWrite)
     Serial.println("'...");
   
     for (uint32_t i=0; i<nBytesToWrite; i++)
-      g_ffs.fWrite(handle, (uint8_t*)&i, 1);
-    g_ffs.fClose(handle);
+      pFile->fWrite((uint8_t*)&i, 1);
+      
+    pFile->fClose();
   }
 }
 
 void createFile(const char* name, uint32_t maxSizeInBytes)
 {
-  SFFS_HANDLE handle = g_ffs.fCreate(name, maxSizeInBytes);
-  if (handle != NULL) 
+  SFFS_File* pFile = g_ffs.FileCreate(name, maxSizeInBytes);
+  if (pFile != NULL) 
   {
     Serial.print("Create file '");
     Serial.print(name);
     Serial.println("'");
 
     // Success, now close it
-    g_ffs.fClose(handle);
+    pFile->fClose();
   }
 }
