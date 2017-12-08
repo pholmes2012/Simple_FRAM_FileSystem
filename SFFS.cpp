@@ -45,7 +45,7 @@ uint32 SFFS_File::m_headSize = sizeof(m_name) + sizeof(m_dataOffset) + sizeof(m_
 bool
 SFFS_File::create(const char* name, uint32 dataOffset, uint32 dataSize, uint index)
 {
-	inUse(SFFS_Tools::strcpy(m_name, name, sizeof(m_name)));
+	InUse(SFFS_Tools::strcpy(m_name, name, sizeof(m_name)));
 	if (InUse())
 	{
 		m_index = index;
@@ -63,45 +63,56 @@ SFFS_File::create(const char* name, uint32 dataOffset, uint32 dataSize, uint ind
 	}
 	return InUse();
 }
-
-
-void
-SFFS_File::open(uint index)
+bool
+SFFS_File::fCreate(const char* fileName, uint32 maxSize)
 {
-	m_index = index;
-	seekHead();
-	m_pStream->Read((uint8*)m_name, sizeof(m_name));
-	m_pStream->Read((uint8*)&m_dataOffset, sizeof(m_dataOffset));
-	m_pStream->Read((uint8*)&m_dataMaxSize, sizeof(m_dataMaxSize));
-	m_pStream->Read((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
-	m_streamOffset = m_dataWrittenSize;
-	inUse(true);
+	return m_volume.fileCreate(this, fileName, maxSize);
 }
+
+
+bool
+SFFS_File::fOpen(uint index)
+{
+	fClose();
+	SFFS_Stream& stream = m_volume.Stream();
+	DEBUG_OUT(print("SFFS: fOpen = ")); DEBUG_OUT(println(index));
+	InUse(true);
+	m_index = index;
+	stream.Seek(headOffset());
+	stream.Read((uint8*)m_name, sizeof(m_name));
+	stream.Read((uint8*)&m_dataOffset, sizeof(m_dataOffset));
+	stream.Read((uint8*)&m_dataMaxSize, sizeof(m_dataMaxSize));
+	stream.Read((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
+	m_streamOffset = m_dataWrittenSize;
+	return InUse();
+}
+bool 
+SFFS_File::fOpen(const char* fileName)
+{
+	fClose();
+	return m_volume.fileOpen(this, fileName);
+}
+
 
 void
 SFFS_File::commit()
 {
-	seekHead();
-	m_pStream->Write((uint8*)m_name, sizeof(m_name));
-	m_pStream->Write((uint8*)&m_dataOffset, sizeof(m_dataOffset));
-	m_pStream->Write((uint8*)&m_dataMaxSize, sizeof(m_dataMaxSize));
-	m_pStream->Write((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
+	SFFS_Stream& stream = m_volume.Stream();
+	stream.Seek(headOffset());
+	stream.Write((uint8*)m_name, sizeof(m_name));
+	stream.Write((uint8*)&m_dataOffset, sizeof(m_dataOffset));
+	stream.Write((uint8*)&m_dataMaxSize, sizeof(m_dataMaxSize));
+	stream.Write((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
 }
 void
 SFFS_File::commitWrite()
 {
-	seekHead();
-	m_pStream->Skip(sizeof(m_name));
-	m_pStream->Skip(sizeof(m_dataOffset));
-	m_pStream->Skip(sizeof(m_dataMaxSize));
-	m_pStream->Write((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
-}
-
-void
-SFFS_File::seekHead()
-{
-	uint32 offset = SFFS_File::m_fileMemStart + (m_index*SFFS_File::m_headSize);
-	m_pStream->Seek(offset);
+	SFFS_Stream& stream = m_volume.Stream();
+	stream.Seek(headOffset());
+	stream.Skip(sizeof(m_name));
+	stream.Skip(sizeof(m_dataOffset));
+	stream.Skip(sizeof(m_dataMaxSize));
+	stream.Write((uint8*)&m_dataWrittenSize, sizeof(m_dataWrittenSize));
 }
 
 
@@ -112,7 +123,7 @@ SFFS_File::fRead(uint8* pDest, uint32 count)
 #ifdef DEV_DBG
 	_showFH();
 #endif
-	uint32 done = m_pStream->Read(m_dataOffset+m_streamOffset, pDest, boundRead(m_streamOffset, count));
+	uint32 done = m_volume.Stream().Read(m_dataOffset+m_streamOffset, pDest, boundRead(m_streamOffset, count));
 	DEBUG_OUT(print("ReadDone: "));	DEBUG_OUT(println(done));
 	done = _hasRead(done);
 #ifdef DEV_DBG
@@ -146,7 +157,7 @@ SFFS_File::fWrite(uint8* pSource, uint32 count)
 #ifdef DEV_DBG
 	_showFH();
 #endif
-	uint32 done = m_pStream->Write(m_dataOffset+m_streamOffset, pSource, boundWrite(m_streamOffset, count));
+	uint32 done = m_volume.Stream().Write(m_dataOffset+m_streamOffset, pSource, boundWrite(m_streamOffset, count));
 	bool bChanged = _hasWritten(done);
 	DEBUG_OUT(print("WriteDone: ")); DEBUG_OUT(println(done));
 #ifdef DEV_DBG
@@ -246,78 +257,41 @@ SFFS_Volume::_volumeCommit()
 }
 
 bool
-SFFS_Volume::FileList(uint index, char* pBuffer, uint bufferSize)
+SFFS_Volume::fileOpen(SFFS_File* pFile, const char* fileName)
 {
-	bool bRet = false;
-	if (bufferSize > SFFS_FILE_NAME_LEN)
-	{
-		if (index < m_fileCount)
-		{
-			SFFS_File head;
-			head.open(index);
-			if (SFFS_Tools::strcpy(pBuffer, head.fName(), bufferSize))
-			{
-				bRet = true;
-			}
-			head.fClose();
-		}
-	}
-	if (bRet==false)
-	{
-		DEBUG_OUT(println("SFFS:fList: Bad param."));
-	}
-	return bRet;
+	int index = _findFile(fileName);
+	DEBUG_OUT(print("SFFS: fileOpen = ")); DEBUG_OUT(println(index));
+	if (index == -1)
+		return false;
+
+	return pFile->fOpen(index);
 }
 
-SFFS_File*
-SFFS_Volume::FileCreate(const char* fileName, uint32 maxSize)
+bool
+SFFS_Volume::fileCreate(SFFS_File* pFile, const char* fileName, uint32 maxSize)
 {
-	SFFS_File* pFile = NULL;
+	pFile->InUse(false);
+
 	if (_findFile(fileName) == -1)
 	{
-		pFile = m_files.New();
-		if (pFile != NULL)
+		uint32 dataOffset = m_dataMemStart-maxSize;
+		if (pFile->create(fileName, dataOffset, maxSize, m_fileCount))
 		{
-			uint32 dataOffset = m_dataMemStart-maxSize;
-			if (pFile->create(fileName, dataOffset, maxSize, m_fileCount))
-			{
-				m_dataMemStart -= maxSize;
-				m_fileCount++;
-				// Save to disk
-				_volumeCommit();
-			}
-			else
-			{
-				// Failed
-				pFile = NULL;
-			}
+			m_dataMemStart -= maxSize;
+			m_fileCount++;
+			// Save to disk
+			_volumeCommit();
+		}
+		else
+		{
+			// Failed
 		}
 	}
 	else
 	{
 		DEBUG_OUT(println("SFFS: File alread exists!"));
 	}
-	return pFile;
-}
-
-SFFS_File*
-SFFS_Volume::FileOpen(uint index)
-{
-	SFFS_File* pHead = m_files.New();
-	if (pHead != NULL)
-	{
-		pHead->open(index);
-	}
-	return pHead;
-}
-
-SFFS_File*
-SFFS_Volume::FileOpen(const char* fileName)
-{
-	int index = _findFile(fileName);
-	if (index != -1)
-		return FileOpen(index);
-	return NULL;
+	return pFile->InUse();
 }
 
 //**************************************************

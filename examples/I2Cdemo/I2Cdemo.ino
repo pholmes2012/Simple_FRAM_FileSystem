@@ -3,6 +3,7 @@
 #define FORCE_NEW_VOLUME false // Set this to true if you want it to create a new volume regardless
 
 SFFS_Volume_I2C g_ffs;  // I2C FRAM FileSystem instance
+SFFS_File g_file(g_ffs);
 
 void createFile(const char* name, uint32_t maxSizeInBytes);
 void writeToFile(const char* name, uint32_t nBytesToWrite);
@@ -38,21 +39,21 @@ void setup() {
       Serial.println("FAILED: Cannot create FRAM volume!");
       while (1)
         ;
-	}
-	else
-	{
-	  Serial.print("Created volume: '");
-	  Serial.print(g_ffs.VolumeName());
-	  Serial.println("'");
+    }
+    else
+    {
+       Serial.print("Created volume: '");
+       Serial.print(g_ffs.VolumeName());
+       Serial.println("'");
 
-	  // Create some files with 1000 bytes maximum size... 
-	  createFile("File One", 1000);	
-	  createFile("File Two", 1000);	
-	  createFile("File Three", 1000);	
-	  // Write some data to files One and Three, but not Two... 
-      writeToFile("File One", 10);
-      writeToFile("File Three", 10);
-	}
+       // Create some files with 1000 bytes maximum size... 
+       createFile("File One", 1000);	
+       createFile("File Two", 1000);	
+       createFile("File Three", 1000);	
+       // Write some data to files One and Three, but not Two... 
+       writeToFile("File One", 10);
+       writeToFile("File Three", 10);
+    }
   }
   else
   {
@@ -90,22 +91,22 @@ void listFiles()
 
 void showFile(uint fileIndex)
 {
-  SFFS_File* pFile = g_ffs.FileOpen(fileIndex);
-  if (pFile != NULL)
+  g_file.fOpen(fileIndex);
+  if (g_file.InUse())
   {
     Serial.print(" '");
-    Serial.print(pFile->fName());
+    Serial.print(g_file.fName());
     Serial.print("', size ");
-    Serial.println(pFile->fSize());
+    Serial.println(g_file.fSize());
     
-    pFile->fClose();
+    g_file.fClose();
   }
 }
 
 void writeToFile(const char* name, uint32_t nBytesToWrite)
 {
-  SFFS_File* pFile = g_ffs.FileOpen(name);
-  if (pFile != NULL) 
+  g_file.fOpen(name);
+  if (g_file.InUse())
   {
     Serial.print("Write ");
     Serial.print(nBytesToWrite);
@@ -114,22 +115,22 @@ void writeToFile(const char* name, uint32_t nBytesToWrite)
     Serial.println("'...");
   
     for (uint32_t i=0; i<nBytesToWrite; i++)
-      pFile->fWrite((uint8_t*)&i, 1);
+      g_file.fWrite((uint8_t*)&i, 1);
       
-    pFile->fClose();
+    g_file.fClose();
   }
 }
 
 void createFile(const char* name, uint32_t maxSizeInBytes)
 {
-  SFFS_File* pFile = g_ffs.FileCreate(name, maxSizeInBytes);
-  if (pFile != NULL) 
+  g_file.fCreate(name, maxSizeInBytes);
+  if (g_file.InUse())
   {
     Serial.print("Create file '");
     Serial.print(name);
     Serial.println("'");
 
     // Success, now close it
-    pFile->fClose();
+    g_file.fClose();
   }
 }

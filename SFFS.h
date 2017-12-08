@@ -136,9 +136,8 @@ public:
 class SFFS_File
 {
 private:
-	SFFS_Stream* m_pStream;
+	SFFS_Volume& m_volume;
 	uint m_index;
-	bool m_bChanged;
 	bool m_bInUse;
 	uint32 m_streamOffset;
 	uint32 m_dataOffset;
@@ -149,14 +148,24 @@ public:
 	static uint32 m_fileMemStart;
 	static uint32 m_headSize;
 
-	SFFS_File() : m_pStream(NULL)
+	SFFS_File(SFFS_Volume& volume) :
+			m_volume(volume)
 	{
-		inUse(false);
+		InUse(false);
 	}
+	bool fOpen(uint index);
+	bool fOpen(const char* fileName);
+	bool fCreate(const char* fileName, uint32 maxSize);
+	
 	bool InUse()
 	{
 		return m_bInUse;
 	}
+	void InUse(bool bOnOff)
+	{
+		m_bInUse = bOnOff;
+	}
+
 	//
 	// File operations
 	//
@@ -198,16 +207,15 @@ public:
 	}
 	void fClose()
 	{
-		inUse(false);
+		if (InUse())
+		{
+			InUse(false);
+		}
 	}
 
+//protected friend
 public:
-	void init(SFFS_Stream& stream)
-	{
-		m_pStream = &stream;
-	}
 	bool create(const char* name, uint32 dataOffset, uint32 DataSize, uint index);
-	void open(uint index);
 
 private:
 	void commit();
@@ -215,17 +223,16 @@ private:
 
 	void _showFH();
 
-	void inUse(bool bOnOff)
-	{
-		m_bInUse = bOnOff;
-	}
 	void hasChanged(bool bChanged)
 	{
 		if (bChanged)
 			commitWrite();
 	}
 
-	void seekHead();
+	uint32 headOffset()
+	{
+		return SFFS_File::m_fileMemStart + (m_index*SFFS_File::m_headSize);
+	}
 
 	void seek(uint32 offset)
 	{
@@ -264,42 +271,21 @@ private:
 	}
 };
 
-class SFFS_FileList
-{
-private:
-	SFFS_File m_list[SFFS_MAX_OPEN_FILES];
-public:
-	SFFS_FileList(SFFS_Stream& stream)
-	{
-		for (uint i=0; i<SFFS_MAX_OPEN_FILES; i++)
-			m_list[i].init(stream);
-	}
-	SFFS_File* New()
-	{
-		for (uint i=0; i<SFFS_MAX_OPEN_FILES; i++)
-			if (m_list[i].InUse()==false)
-				return &m_list[i];
-		return NULL;
-	}
-};
-
 
 class SFFS_Volume
 {
 private:
-	SFFS_Stream m_ios;
-	SFFS_FileList m_files;
 	char m_volumeName[SFFS_FILE_NAME_BUFFER_LEN];
 	uint32 m_magic;
 	uint32 m_volumeSize;
 	uint32 m_fileCount;
 	uint32 m_dataMemStart;
+	SFFS_Stream m_ios;
 public:
 
 	SFFS_Volume(cIO_DRV& driver) : 
-			m_ios(driver),
-			m_files(m_ios),
-			m_magic(0)
+			m_magic(0),
+			m_ios(driver)
 	{
 	}
 
@@ -320,15 +306,17 @@ public:
 	//
 	// File operations
 	//
+	SFFS_Stream& Stream()
+	{
+		return m_ios;
+	}
 	uint FileCount()
 	{
 		return m_fileCount;
 	}
-	bool FileList(uint index, char* pBuffer, uint bufferSize);
-	SFFS_File* FileCreate(const char* fileName, uint32 maxSize);
-	SFFS_File* FileOpen(uint index);
-	SFFS_File* FileOpen(const char* fileName);
-
+//protected friend
+	bool fileCreate(SFFS_File* pFile, const char* fileName, uint32 maxSize);
+	bool fileOpen(SFFS_File* pFile, const char* fileName);
 protected:
 	bool			init();
 private:
