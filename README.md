@@ -33,27 +33,27 @@ Limitations:
 Uses:
    
   This file system was designed primarily for frequent backing up of runtime structures to non-volatile
-  storage, this might be done in the following way...
-  
+  storage, this might be done in the following way:
+  ```
   if (file.fOpen("Structure1")==false)
   {
     file.fCreate("Structure1", sizeof(my_structure));
     file.fWrite(&my_structure, sizeof(my_structure));
   }
   file.fReadAt(0, &my_structure, sizeof(my_structure));
-   
+  ``` 
   See the example sketches for full working examples.
  
  
-// SFFS_Volume API
-//
+SFFS_Volume API:
+```
 // begin(uint8 csPin, uint8 addressWidth); // Initialise the SFFS and the SPI FRAM device
 // VolumeName();                           // Return the volume name if one exists, or NULL if not
 // VolumeCreate(char* volumeName)          // Create a new volume, overwrite if one already exists
+```
 
-
-// SFFS_File API
-//
+SFFS_File API:
+```
 // fCreate(char* fileName, uint32 maxSize) // Create a file with a name and a maximum size it can grow to
 // fOpen(char* fileName);                  // Open an existing file, or return false if the file does not exist 
 // fOpen(uint idx);                        // Open a file at idx, or return false if fewer than idx+1 files exists
@@ -64,3 +64,4 @@ Uses:
 // fWrite(uin8* buffer, uint32 count);     // Write out data starting at the current file position 
 // fReadAt(uint32 fileOffset, uin8* buffer, uint32 count); // Read in data after seeking to a file position
 // fWriteAt(uint32 fileOffset, uin8* buffer, uint32 count); // Write out data after seeking to a file position 
+```
