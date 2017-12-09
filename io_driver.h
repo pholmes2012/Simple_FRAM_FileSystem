@@ -86,8 +86,8 @@ public:
 	{
 		return (Write(offset, &data, 1)==1) ? true : false;
 	}
-	virtual uint32 Read(uint32 offset, uint8* pBuf, uint32 count) = 0;
-	virtual uint32 Write(uint32 offset, const uint8* pBuf, uint32 count) = 0;
+	virtual uint32 Read(uint32 offset, void* pBuf, uint32 count) = 0;
+	virtual uint32 Write(uint32 offset, const void* pBuf, uint32 count) = 0;
 };
 
 
@@ -99,8 +99,8 @@ public:
 	}
 	bool Init(uint8 csPin, uint8 addrWidth);
 	
-	virtual uint32 Read(uint32 offset, uint8* pBuf, uint32 count);
-	virtual uint32 Write(uint32 offset, const uint8* pBuf, uint32 count);
+	virtual uint32 Read(uint32 offset, void* pBuf, uint32 count);
+	virtual uint32 Write(uint32 offset, const void* pBuf, uint32 count);
 private:
 	uint8 m_csPin;
 	uint8 m_addrWidth;
@@ -119,8 +119,8 @@ public:
 	}
 	bool Init(uint8 hwAddr);
 	
-	virtual uint32 Read(uint32 offset, uint8* pBuf, uint32 count);
-	virtual uint32 Write(uint32 offset, const uint8* pBuf, uint32 count);
+	virtual uint32 Read(uint32 offset, void* pBuf, uint32 count);
+	virtual uint32 Write(uint32 offset, const void* pBuf, uint32 count);
 private:
 	uint8 m_hwAddr;
 

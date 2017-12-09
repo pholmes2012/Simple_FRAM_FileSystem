@@ -45,6 +45,7 @@ uint32 SFFS_File::m_headSize = sizeof(m_name) + sizeof(m_dataOffset) + sizeof(m_
 bool
 SFFS_File::create(const char* name, uint32 dataOffset, uint32 dataSize, uint index)
 {
+	fClose();
 	InUse(SFFS_Tools::strcpy(m_name, name, sizeof(m_name)));
 	if (InUse())
 	{
@@ -117,7 +118,7 @@ SFFS_File::commitWrite()
 
 
 uint32
-SFFS_File::fRead(uint8* pDest, uint32 count)
+SFFS_File::fRead(void* pDest, uint32 count)
 {
   	DEBUG_OUT(print("Read: ")); DEBUG_OUT(print(m_name)); DEBUG_OUT(print(" bytes: ")); DEBUG_OUT(println(count));
 #ifdef DEV_DBG
@@ -125,7 +126,7 @@ SFFS_File::fRead(uint8* pDest, uint32 count)
 #endif
 	uint32 done = m_volume.Stream().Read(m_dataOffset+m_streamOffset, pDest, boundRead(m_streamOffset, count));
 	DEBUG_OUT(print("ReadDone: "));	DEBUG_OUT(println(done));
-	done = _hasRead(done);
+	_hasRead(done);
 #ifdef DEV_DBG
 	_showFH();
 #endif
@@ -151,19 +152,18 @@ SFFS_File::_showFH()
 
 
 uint32
-SFFS_File::fWrite(uint8* pSource, uint32 count)
+SFFS_File::fWrite(void* pSource, uint32 count)
 {
   	DEBUG_OUT(print("Write: ")); DEBUG_OUT(print(m_name)); DEBUG_OUT(print(" bytes: ")); DEBUG_OUT(println(count));
 #ifdef DEV_DBG
 	_showFH();
 #endif
 	uint32 done = m_volume.Stream().Write(m_dataOffset+m_streamOffset, pSource, boundWrite(m_streamOffset, count));
-	bool bChanged = _hasWritten(done);
+	_hasWritten(done);
 	DEBUG_OUT(print("WriteDone: ")); DEBUG_OUT(println(done));
 #ifdef DEV_DBG
 	_showFH();
 #endif
-	hasChanged(bChanged);
 	return done;
 }
 
@@ -270,8 +270,6 @@ SFFS_Volume::fileOpen(SFFS_File* pFile, const char* fileName)
 bool
 SFFS_Volume::fileCreate(SFFS_File* pFile, const char* fileName, uint32 maxSize)
 {
-	pFile->InUse(false);
-
 	if (_findFile(fileName) == -1)
 	{
 		uint32 dataOffset = m_dataMemStart-maxSize;

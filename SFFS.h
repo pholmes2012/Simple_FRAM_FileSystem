@@ -108,24 +108,24 @@ public:
 	{
 		return m_offset;
 	}
-	uint Read(uint8* pDest, uint32 count)
+	uint Read(void* pDest, uint32 count)
 	{
 		count = m_driver.Read(m_offset, pDest, count);
 		m_offset += count;
 		return count;
 	}
-	uint Read(uint32 addr, uint8* pDest, uint32 count)
+	uint Read(uint32 addr, void* pDest, uint32 count)
 	{
 		Seek(addr);
 		return Read(pDest, count);
 	}
-	uint Write(uint8* pSource, uint32 count)
+	uint Write(void* pSource, uint32 count)
 	{
 		count = m_driver.Write(m_offset, pSource, count);
 		m_offset += count;
 		return count;
 	}
-	uint Write(uint32 addr, uint8* pSource, uint32 count)
+	uint Write(uint32 addr, void* pSource, uint32 count)
 	{
 		Seek(addr);
 		return Write(pSource, count);
@@ -161,10 +161,6 @@ public:
 	{
 		return m_bInUse;
 	}
-	void InUse(bool bOnOff)
-	{
-		m_bInUse = bOnOff;
-	}
 
 	//
 	// File operations
@@ -181,15 +177,15 @@ public:
 	{
 		return m_name;
 	}
-	uint32 fRead(uint8* pBuf, uint32 count);
-	uint32 fReadAt(uint32 offset, uint8* pBuf, uint32 count)
+	uint32 fRead(void* pBuf, uint32 count);
+	uint32 fReadAt(uint32 offset, void* pBuf, uint32 count)
 	{
 		if (fSeek(offset)==offset)
 			return fRead(pBuf, count);
 		return 0;
 	}
-	uint32 fWrite(uint8* pBuf, uint32 count);
-	uint32 fWriteAt(uint32 offset, uint8* pBuf, uint32 count)
+	uint32 fWrite(void* pBuf, uint32 count);
+	uint32 fWriteAt(uint32 offset, void* pBuf, uint32 count)
 	{
 		if (fSeek(offset)==offset)
 			return fWrite(pBuf, count);
@@ -218,16 +214,14 @@ public:
 	bool create(const char* name, uint32 dataOffset, uint32 DataSize, uint index);
 
 private:
+	void InUse(bool bOnOff)
+	{
+		m_bInUse = bOnOff;
+	}
 	void commit();
 	void commitWrite();
 
 	void _showFH();
-
-	void hasChanged(bool bChanged)
-	{
-		if (bChanged)
-			commitWrite();
-	}
 
 	uint32 headOffset()
 	{
@@ -254,20 +248,18 @@ private:
 			count = m_dataMaxSize-offset;
 		return count;
 	}
-	uint32 _hasRead(uint32 done)
+	void _hasRead(uint32 done)
 	{
 		m_streamOffset += done;
-		return done;
 	}
-	bool _hasWritten(uint32 done)
+	void _hasWritten(uint32 done)
 	{
-		(void)_hasRead(done);
+		_hasRead(done);
 		if (m_streamOffset > m_dataWrittenSize)
 		{
 			m_dataWrittenSize = m_streamOffset;
-			return true;
+			commitWrite();
 		}
-		return false;
 	}
 };
 

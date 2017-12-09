@@ -68,26 +68,26 @@ cIO_DRV_SPI::_writeEnable(bool bEnable)
 }
 
 uint32
-cIO_DRV_SPI::Read(uint32 offset, uint8* pBuf, uint32 byteCount)
+cIO_DRV_SPI::Read(uint32 offset, void* pBuf, uint32 byteCount)
 {
 	digitalWrite(m_csPin, LOW);
 	SPI.transfer(SPI_CMD_READ);
   	_writeAddress(offset);
   	for (uint32 i=0; i<byteCount; i++)
-		pBuf[i] = SPI.transfer(0);
+		((uint8*)pBuf)[i] = SPI.transfer(0);
   	digitalWrite(m_csPin, HIGH);
 	return byteCount;
 }
 
 uint32
-cIO_DRV_SPI::Write(uint32 offset, const uint8* pBuf, uint32 byteCount)
+cIO_DRV_SPI::Write(uint32 offset, const void* pBuf, uint32 byteCount)
 {
 	_writeEnable(true);
 	digitalWrite(m_csPin, LOW);
 	SPI.transfer(SPI_CMD_WRITE);
   	_writeAddress(offset);
 	for (uint32 i=0; i<byteCount; i++)
-		SPI.transfer(pBuf[i]);
+		SPI.transfer(((uint8*)pBuf)[i]);
 	digitalWrite(m_csPin, HIGH);
 	_writeEnable(false);
 	

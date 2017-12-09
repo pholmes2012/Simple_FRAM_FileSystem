@@ -41,7 +41,7 @@ cIO_DRV_I2C::_writeAddress(uint32 offset)
 
 
 uint32
-cIO_DRV_I2C::Read(uint32 offset, uint8* pBuf, uint32 byteCount)
+cIO_DRV_I2C::Read(uint32 offset, void* pBuf, uint32 byteCount)
 {
 	uint32 hasRead = 0;
 	uint32 toRead = byteCount;
@@ -58,7 +58,7 @@ cIO_DRV_I2C::Read(uint32 offset, uint8* pBuf, uint32 byteCount)
 		Wire.requestFrom(m_hwAddr, block);
 		while (Wire.available())
 		{
-			pBuf[hasRead++] = Wire.read();
+			((uint8*)pBuf)[hasRead++] = Wire.read();
 			toRead--;
 		}
 	}
@@ -76,7 +76,7 @@ cIO_DRV_I2C::Read(uint32 offset, uint8* pBuf, uint32 byteCount)
 }
 
 uint32
-cIO_DRV_I2C::Write(uint32 offset, const uint8* pBuf, uint32 byteCount)
+cIO_DRV_I2C::Write(uint32 offset, const void* pBuf, uint32 byteCount)
 {
 	uint32 hasWritten = 0;
 	uint32 toWrite = byteCount;
@@ -88,7 +88,7 @@ cIO_DRV_I2C::Write(uint32 offset, const uint8* pBuf, uint32 byteCount)
 		Wire.beginTransmission(m_hwAddr | pageBit);
 		_writeAddress(addr);
 		uint8 block = (toWrite > MULTIBYTE_BLOCK_TX_LEN) ? MULTIBYTE_BLOCK_TX_LEN : toWrite;
-		uint8 done = Wire.write(&pBuf[hasWritten], block);
+		uint8 done = Wire.write(&((uint8*)pBuf)[hasWritten], block);
 		toWrite -= done;
 		hasWritten += done;
 		Wire.endTransmission();
