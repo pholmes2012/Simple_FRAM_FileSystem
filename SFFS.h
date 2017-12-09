@@ -47,8 +47,6 @@
 
 class SFFS_Volume;
 
-typedef void* SFFS_HANDLE;
-
 class SFFS_Tools
 {
 private:
