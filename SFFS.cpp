@@ -224,10 +224,10 @@ SFFS_Volume::_volumeOpen()
 	m_ios.Read((uint8*)&m_magic, sizeof(m_magic));
 	if (m_magic == SFFS_MAGIC_INT)
 	{
-		m_ios.Read((uint8*)&m_volumeName, sizeof(m_volumeName));
-		m_ios.Read((uint8*)&m_fileCount, sizeof(m_fileCount));
-		m_ios.Read((uint8*)&m_dataMemStart, sizeof(m_dataMemStart));
-		m_ios.Read((uint8*)&m_magic, sizeof(m_magic));
+		m_ios.Read(&m_volumeName, sizeof(m_volumeName));
+		m_ios.Read(&m_fileCount, sizeof(m_fileCount));
+		m_ios.Read(&m_dataMemStart, sizeof(m_dataMemStart));
+		m_ios.Read(&m_magic, sizeof(m_magic));
 		if (m_magic == SFFS_MAGIC_INT)
 		{
 			DEBUG_OUT(print("SFFS: Volume '")); 
@@ -248,11 +248,11 @@ void
 SFFS_Volume::_volumeCommit()
 {
 	m_ios.Seek(0);
-	m_ios.Write((uint8*)&m_magic, sizeof(m_magic));
-	m_ios.Write((uint8*)&m_volumeName, sizeof(m_volumeName));
-	m_ios.Write((uint8*)&m_fileCount, sizeof(m_fileCount));
-	m_ios.Write((uint8*)&m_dataMemStart, sizeof(m_dataMemStart));
-	m_ios.Write((uint8*)&m_magic, sizeof(m_magic));
+	m_ios.Write(&m_magic, sizeof(m_magic));
+	m_ios.Write(&m_volumeName, sizeof(m_volumeName));
+	m_ios.Write(&m_fileCount, sizeof(m_fileCount));
+	m_ios.Write(&m_dataMemStart, sizeof(m_dataMemStart));
+	m_ios.Write(&m_magic, sizeof(m_magic));
 	SFFS_File::m_fileMemStart = m_ios.Tell();
 }
 
@@ -345,7 +345,7 @@ SFFS_Volume::_findFile(const char* fileName)
 	for (uint i=0; i<m_fileCount; i++)
 	{
 		m_ios.Seek(offset);
-		m_ios.Read((uint8*)name, sizeof(name));
+		m_ios.Read(name, sizeof(name));
 		if (SFFS_Tools::strcmp(name, fileName))
 		{
 			// Found it
