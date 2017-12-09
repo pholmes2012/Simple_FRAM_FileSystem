@@ -60,7 +60,7 @@ Uses:
 // fClose();                               // Close an open file
 // fSeek(uint32 fileOffset);               // Seek to a position in a file, fail if out of bounds, return current position either way
 // fTell();                                // Return the current read/write position in a file  
-// fRead(uin8* buffer, uint32 count);      // Read in data from the current file position  					
+// fRead(uin8* buffer, uint32 count);      // Read in data from the current file position  	
 // fWrite(uin8* buffer, uint32 count);     // Write out data starting at the current file position 
 // fReadAt(uint32 fileOffset, uin8* buffer, uint32 count); // Read in data after seeking to a file position
-// fWriteAt(uint32 fileOffset, uin8* buffer, uint32 count); // Write out data after seeking to a file position  
+// fWriteAt(uint32 fileOffset, uin8* buffer, uint32 count); // Write out data after seeking to a file position 
