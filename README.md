@@ -1,5 +1,5 @@
 # Simple_FRAM_FileSystem
-A small footprint embedded style file system for FRAM breakouts, supporting both SPI and I2C.
+An Arduino library that is a small footprint embedded style file system for FRAM breakouts, supporting both SPI and I2C.
 
 Features:
 
