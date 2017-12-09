@@ -47,8 +47,8 @@ Uses:
  
 SFFS_Volume API:
 ```
-// begin(uint8 deviceAddress);             // Initialise the SFFS and the I2C FRAM device
-// begin(uint8 csPin, uint8 addressWidth); // Initialise the SFFS and the SPI FRAM device
+// begin(uint8 deviceAddress);             // Initialise the SFFS with an I2C FRAM device
+// begin(uint8 csPin, uint8 addressWidth); // Initialise the SFFS with an SPI FRAM device
 // VolumeName();                           // Return the volume name if one exists, or NULL if not
 // VolumeCreate(char* volumeName)          // Create a new volume, overwrite if one already exists
 ```
