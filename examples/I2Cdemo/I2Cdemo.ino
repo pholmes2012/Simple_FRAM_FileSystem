@@ -14,6 +14,8 @@
 // fOpen(char* fileName);                  // Open an existing file, or return false if the file does not exist 
 // fOpen(uint idx);                        // Open a file at idx, or return false if fewer than idx+1 files exists
 // fClose();                               // Close an open file
+// fSize();                                // Return the current size of the file
+// fSizeMax();                             // Return the maximum size the file can be
 // fSeek(uint32 fileOffset);               // Seek to a position in a file, fail if out of bounds, return current position either way
 // fTell();                                // Return the current read/write position in a file  
 // fRead(uin8* buffer, uint32 count);      // Read in data from the current file position  					
