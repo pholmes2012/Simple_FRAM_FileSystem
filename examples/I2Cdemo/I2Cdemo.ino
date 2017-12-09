@@ -2,9 +2,11 @@
 
 // SFFS_Volume API
 //
-// begin(uint8 i2c_device_address); // Initialise the SFFS and the I2C FRAM device
-// VolumeName();                    // Return the volume name if one exists, or NULL if not
-// VolumeCreate(char* volumeName)   // Create a new volume, overwrite if one already exists
+// begin(uint8 i2c_device_address);        // Initialise the SFFS and the I2C FRAM device
+// VolumeName();                           // Return the volume name if one exists, or NULL if not
+// VolumeSize();                           // Return the total size of the FRAM
+// VolumeFree();                           // Return the size of free storage available for files
+// VolumeCreate(char* volumeName)          // Create a new volume, overwrite if one already exists
 //
 // SFFS_File API
 //
@@ -23,7 +25,7 @@
 // Set this to true if you want to force a new volume creation
 #define FORCE_NEW_VOLUME false
 
-SFFS_Volume_I2C g_ffs;  // I2C FRAM FileSystem instance
+SFFS_Volume_I2C g_ffs;   // I2C FRAM FileSystem instance
 SFFS_File g_file(g_ffs); // The file instance we will use
 
 // The structure we are going to save as a file.
@@ -64,7 +66,8 @@ void setup() {
     }
   }
 
-  Serial.print("FRAM volume '"); Serial.print(g_ffs.VolumeName()); Serial.println("'");
+  Serial.print("FRAM volume '"); Serial.print(g_ffs.VolumeName()); Serial.print("' size ");
+  Serial.print(g_ffs.VolumeSize()); Serial.print(", available "); Serial.println(g_ffs.VolumeFree());
 
   // Open or create our structure file
   if (g_file.fOpen("MyStruct")==false)
@@ -119,22 +122,22 @@ void loop() {
   if (Serial.available())
   {
     char C = (char)Serial.read();
-	input[idx++] = C;
-	if (idx==sizeof(input) || C=='\n' || C=='\r' || C=='\0')
+    input[idx++] = C;
+    if (idx==sizeof(input) || C=='\n' || C=='\r' || C=='\0')
     {
       int num;	  
-	  if (sscanf(input, "%c=%d", &C, &num)==2)
-	  {
-	    if (C=='a') my_struct.a = (int32_t)num;
-	    if (C=='b') my_struct.b = (int16_t)num;
-	    if (C=='c') my_struct.c = (int8_t)num;
-	    if (C=='d') my_struct.d = (int8_t)num;
-	    // Write the current structure to the file...
-	    g_file.fWriteAt(0, &my_struct, sizeof(my_struct));
-	    // Display the new values
-	    show();    
-	  }
-	  idx = 0;
+      if (sscanf(input, "%c=%d", &C, &num)==2)
+      {
+        if (C=='a') my_struct.a = (int32_t)num;
+        if (C=='b') my_struct.b = (int16_t)num;
+        if (C=='c') my_struct.c = (int8_t)num;
+        if (C=='d') my_struct.d = (int8_t)num;
+        // Write the current structure to the file...
+        g_file.fWriteAt(0, &my_struct, sizeof(my_struct));
+        // Display the new values
+        show();    
+      }
+      idx = 0;
 	 }
   }
 }

@@ -1,12 +1,22 @@
 {
-    "name": "DueTimer",
-    "keywords": "timer",
-    "description": "Timer Library fully implemented for Arduino DUE",
+    "name": "SFFS",
+    "keywords": "file system, file-system, filesystem, FRAM, I2C, SPI",
+    "description": "Arduino Library FRAM file system for I2C/SPI FRAM breakout boards",
     "repository":
     {
         "type": "git",
-        "url": "https://github.com/ivanseidel/DueTimer.git"
+        "url": "https://github.com/pholmes2012/Simple_FRAM_FileSystem.git"
     },
+    "authors": 
+    [
+      {
+        "name": "Paul Holmes",
+        "email": "pholmes2012@gmail.com",
+        "url": "https://github.com/pholmes2012/Simple_FRAM_FileSystem",
+        "maintainer": true
+      },
+    ],
+    "version": "1.0.0",
     "frameworks": "arduino",
-    "platforms": "atmelsam"
+    "platforms": "*"
 }

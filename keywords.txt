@@ -2,7 +2,6 @@ VolumeCreate	KEYWORD2
 VolumeName	KEYWORD2
 VolumeSize	KEYWORD2
 VolumeFree	KEYWORD2
-fList		KEYWORD2
 fOpen		KEYWORD2
 fClose		KEYWORD2
 fCreate		KEYWORD2

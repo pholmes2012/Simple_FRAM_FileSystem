@@ -291,6 +291,7 @@ public:
 	{
 		return m_volumeSize;
 	}
+	uint32 VolumeFree();
 	const char* VolumeName()
 	{
 		return (m_magic == SFFS_MAGIC_INT) ? m_volumeName : NULL;

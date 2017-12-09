@@ -21,19 +21,19 @@ Features:
 Limitations:
  
  Files are created with a maximum possible size, the initial file size (fSize) will be 0 then the
- file can be written to until it grows to its maximum size. At any time data can be written to any
+ file can be written to until it grows to its maximum size. At any time data can be read/written from any
  offset within the file, where the offset is < fSize().
  
  Once a file is created in a file system it can not be deleted from the file system (but a new
- file system can be created deleting all files).
+ file system can be created deleting all existing files).
  
- No endian awareness, currently the endianness of the data written will be the endianness of the CPU that wrote it.
+ No directories or folders.
  
  
 Uses:
    
   This file system was designed primarily for frequent backing up of runtime structures to non-volatile
-  storage, this might be done in the following way:
+  storage, this could be done in the following way:
   ```
   if (file.fOpen("Structure1")==false)
   {
@@ -50,7 +50,9 @@ SFFS_Volume API:
 // begin(uint8 deviceAddress);             // Initialise the SFFS with an I2C FRAM device
 // begin(uint8 csPin, uint8 addressWidth); // Initialise the SFFS with an SPI FRAM device
 // VolumeName();                           // Return the volume name if one exists, or NULL if not
-// VolumeCreate(char* volumeName)          // Create a new volume, overwrite if one already exists
+// VolumeCreate(char* volumeName);         // Create a new volume, overwrite if one already exists
+// VolumeSize();                           // Return the total size of the FRAM
+// VolumeFree();                           // Return the size of free storage available for files
 ```
 
 SFFS_File API:

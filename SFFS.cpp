@@ -256,6 +256,13 @@ SFFS_Volume::_volumeCommit()
 	SFFS_File::m_fileMemStart = m_ios.Tell();
 }
 
+uint32
+SFFS_Volume::VolumeFree()
+{
+	uint32 memStart = SFFS_File::m_fileMemStart + ((m_fileCount+1)*SFFS_File::m_headSize);
+	return m_dataMemStart-memStart;
+}
+
 bool
 SFFS_Volume::fileOpen(SFFS_File* pFile, const char* fileName)
 {
@@ -272,22 +279,29 @@ SFFS_Volume::fileCreate(SFFS_File* pFile, const char* fileName, uint32 maxSize)
 {
 	if (_findFile(fileName) == -1)
 	{
-		uint32 dataOffset = m_dataMemStart-maxSize;
-		if (pFile->create(fileName, dataOffset, maxSize, m_fileCount))
+		if (VolumeFree() >= maxSize)
 		{
-			m_dataMemStart -= maxSize;
-			m_fileCount++;
-			// Save to disk
-			_volumeCommit();
+			uint32 dataOffset = m_dataMemStart-maxSize;
+			if (pFile->create(fileName, dataOffset, maxSize, m_fileCount))
+			{
+				m_dataMemStart -= maxSize;
+				m_fileCount++;
+				// Save to disk
+				_volumeCommit();
+			}
+			else
+			{
+				// Failed
+			}
 		}
 		else
 		{
-			// Failed
+			DEBUG_OUT(println("SFFS: Not enough space!"));
 		}
 	}
 	else
 	{
-		DEBUG_OUT(println("SFFS: File alread exists!"));
+		DEBUG_OUT(println("SFFS: File already exists!"));
 	}
 	return pFile->InUse();
 }
