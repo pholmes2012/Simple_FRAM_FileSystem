@@ -259,6 +259,8 @@ SFFS_Volume::_volumeCommit()
 uint32
 SFFS_Volume::VolumeFree()
 {
+	if (VolumeName()==NULL)
+		return 0;
 	uint32 memStart = SFFS_File::m_fileMemStart + ((m_fileCount+1)*SFFS_File::m_headSize);
 	return m_dataMemStart-memStart;
 }

@@ -42,8 +42,7 @@
 #include "io_driver.h"
 
 #define SFFS_MAGIC_INT (uint32)('1'<<24 | '0'<<16 | 'S'<<8 | 'F')
-#define SFFS_MAX_OPEN_FILES 4
-#define SFFS_FILE_NAME_LEN 15
+#define SFFS_FILE_NAME_LEN 15 // Maximum length of a file or volume name (excluding the trailing 0)
 #define SFFS_FILE_NAME_BUFFER_LEN (SFFS_FILE_NAME_LEN+1)
 
 class SFFS_Volume;
@@ -277,6 +276,9 @@ public:
 
 	SFFS_Volume(cIO_DRV& driver) : 
 			m_magic(0),
+			m_volumeSize(0),
+			m_fileCount(0),
+			m_dataMemStart(0),
 			m_ios(driver)
 	{
 	}
@@ -289,6 +291,8 @@ public:
 	bool VolumeCreate(const char* volumeName);
 	uint32 VolumeSize()
 	{
+		if (VolumeName()==NULL)
+			return 0;
 		return m_volumeSize;
 	}
 	uint32 VolumeFree();
