@@ -1,6 +1,6 @@
 {
     "name": "SFFS",
-    "keywords": "file system, file-system, filesystem, FRAM, I2C, SPI",
+    "keywords": "data storage, file system, file-system, filesystem, FRAM, I2C, SPI",
     "description": "Arduino Library FRAM file system for I2C/SPI FRAM breakout boards",
     "repository":
     {
@@ -11,7 +11,6 @@
     [
       {
         "name": "Paul Holmes",
-        "email": "pholmes2012@gmail.com",
         "url": "https://github.com/pholmes2012/Simple_FRAM_FileSystem",
         "maintainer": true
       },
