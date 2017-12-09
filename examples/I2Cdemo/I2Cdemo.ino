@@ -1,136 +1,140 @@
 #include <SFFS.h>
 
-#define FORCE_NEW_VOLUME false // Set this to true if you want it to create a new volume regardless
+// SFFS_Volume API
+//
+// begin(uint8 i2c_device_address); // Initialise the SFFS and the I2C FRAM device
+// VolumeName();                    // Return the volume name if one exists, or NULL if not
+// VolumeCreate(char* volumeName)   // Create a new volume, overwrite if one already exists
+//
+// SFFS_File API
+//
+// fCreate(char* fileName, uint32 maxSize) // Create a file with a name and a maximum size it can grow to
+// fOpen(char* fileName);                  // Open an existing file, or return false if the file does not exist 
+// fOpen(uint idx);                        // Open a file at idx, or return false if fewer than idx+1 files exists
+// fClose();                               // Close an open file
+// fSeek(uint32 fileOffset);               // Seek to a position in a file, fail if out of bounds, return current position either way
+// fTell();                                // Return the current read/write position in a file  
+// fRead(uin8* buffer, uint32 count);      // Read in data from the current file position  					
+// fWrite(uin8* buffer, uint32 count);     // Write out data starting at the current file position 
+// fReadAt(uint32 fileOffset, uin8* buffer, uint32 count); // Read in data after seeking to a file position
+// fWriteAt(uint32 fileOffset, uin8* buffer, uint32 count); // Write our data after seeking to a file position  
+//
+
+// Set this to true if you want to force a new volume creation
+#define FORCE_NEW_VOLUME false
 
 SFFS_Volume_I2C g_ffs;  // I2C FRAM FileSystem instance
-SFFS_File g_file(g_ffs);
+SFFS_File g_file(g_ffs); // The file instance we will use
 
-void createFile(const char* name, uint32_t maxSizeInBytes);
-void writeToFile(const char* name, uint32_t nBytesToWrite);
-void showFile(uint fileIndex);
-void listFiles();
+// The structure we are going to save as a file.
+typedef struct {
+  int32_t a;
+  int16_t b;
+  int8_t c;
+  int8_t d;
+}MY_STRUCT;
+
+MY_STRUCT my_struct;
+void show();
 
 
 void setup() {
   Serial.begin(115200);
-  while(!Serial)
-   ;
+    while(!Serial)
+      ;
 
-  g_ffs.debug(true);
-  
-  // Use defailt address
+  // Initialise the FRAM
   if (g_ffs.begin(I2C_DEFAULT_ADDRESS)==false)
   {
-     Serial.println("FRAM begin failed, check your connections.");
-     while (true) 
-       ;
+      Serial.println("FAILED: Cannot initialise FRAM");
+      while (1)
+        ;
   }
 
-  Serial.print("I2C FRAM Init OK, capacity is ");
-  Serial.print(g_ffs.VolumeSize());
-  Serial.println(" bytes.");
-  Serial.println("");
-
+  // Check for existing FRAM filesystem, or create one
   if (FORCE_NEW_VOLUME || g_ffs.VolumeName()==NULL)
   {
     // Creat a new volume...
-    if (g_ffs.VolumeCreate("SPIVolume_1")==false)
+    Serial.println("Create new FRAM volume");
+    if (g_ffs.VolumeCreate("Volume_1")==false)
     {
-      Serial.println("FAILED: Cannot create FRAM volume!");
+      Serial.println("FAILED: Cannot create FRAM volume");
       while (1)
         ;
     }
-    else
-    {
-       Serial.print("Created volume: '");
-       Serial.print(g_ffs.VolumeName());
-       Serial.println("'");
+  }
 
-       // Create some files with 1000 bytes maximum size... 
-       createFile("File One", 1000);	
-       createFile("File Two", 1000);	
-       createFile("File Three", 1000);	
-       // Write some data to files One and Three, but not Two... 
-       writeToFile("File One", 10);
-       writeToFile("File Three", 10);
-    }
+  Serial.print("FRAM volume '"); Serial.print(g_ffs.VolumeName()); Serial.println("'");
+
+  // Open or create our structure file
+  if (g_file.fOpen("MyStruct")==false)
+  {
+     // Create our file with its maximum size being the size of our structure
+     if (g_file.fCreate("MyStruct", sizeof(my_struct)))
+     {
+       // Zero then write out our structure
+       memset(&my_struct, 0, sizeof(my_struct));
+       // At this point the file size is 0, so we write all our data to it then
+       // the file size will be the size of our structure (also this file's maximum size).
+       g_file.fWrite(&my_struct, sizeof(my_struct));
+       Serial.println("Created MyStruct file");
+     }
+     else
+     {
+       Serial.println("FAILED: Cannot create the file");
+       while (1)
+         ;
+     }
   }
   else
   {
-    Serial.print("Found volume: '");
-    Serial.print(g_ffs.VolumeName());
-    Serial.println("'");
+    Serial.println("Opened MyStruct file");
   }
-  
-  // List all files...
-  listFiles();
-  
-  // Now write an additional 8 bytes to file Two...
-  writeToFile("File Two", 8);
 
-  // List all files again...
-  listFiles();
+  // Load in our structure
+  g_file.fReadAt(0, &my_struct, sizeof(my_struct));
+  // Show our initial structure
+  show();
+  Serial.println("Change structure variables with..");
+  Serial.println("a=123");
+  Serial.println("c=56");
+  Serial.println("etc...");
 }
+
+
+void show()
+{
+  Serial.print("a = "); Serial.println(my_struct.a); 
+  Serial.print("b = "); Serial.println(my_struct.b); 
+  Serial.print("c = "); Serial.println(my_struct.c); 
+  Serial.print("d = "); Serial.println(my_struct.d); 
+  Serial.println();
+}
+
+int idx = 0;
+char input[32];
 
 void loop() {
 
-}
-
-void listFiles()
-{
-  Serial.println("");
-  Serial.println("List Files:");
-  // List all files...
-  uint FileCount = g_ffs.FileCount();
-  for (uint i=0; i<FileCount; i++)
+  if (Serial.available())
   {
-    showFile(i);
-  }	
-  Serial.println("");
-}
-
-void showFile(uint fileIndex)
-{
-  g_file.fOpen(fileIndex);
-  if (g_file.InUse())
-  {
-    Serial.print(" '");
-    Serial.print(g_file.fName());
-    Serial.print("', size ");
-    Serial.println(g_file.fSize());
-    
-    g_file.fClose();
-  }
-}
-
-void writeToFile(const char* name, uint32_t nBytesToWrite)
-{
-  g_file.fOpen(name);
-  if (g_file.InUse())
-  {
-    Serial.print("Write ");
-    Serial.print(nBytesToWrite);
-    Serial.print(" bytes to '");
-    Serial.print(name);
-    Serial.println("'...");
-  
-    for (uint32_t i=0; i<nBytesToWrite; i++)
-      g_file.fWrite((uint8_t*)&i, 1);
-      
-    g_file.fClose();
-  }
-}
-
-void createFile(const char* name, uint32_t maxSizeInBytes)
-{
-  g_file.fCreate(name, maxSizeInBytes);
-  if (g_file.InUse())
-  {
-    Serial.print("Create file '");
-    Serial.print(name);
-    Serial.println("'");
-
-    // Success, now close it
-    g_file.fClose();
+    char C = (char)Serial.read();
+	input[idx++] = C;
+	if (idx==sizeof(input) || C=='\n' || C=='\r' || C=='\0')
+    {
+      int num;	  
+	  if (sscanf(input, "%c=%d", &C, &num)==2)
+	  {
+	    if (C=='a') my_struct.a = (int32_t)num;
+	    if (C=='b') my_struct.b = (int16_t)num;
+	    if (C=='c') my_struct.c = (int8_t)num;
+	    if (C=='d') my_struct.d = (int8_t)num;
+	    // Write the current structure to the file...
+	    g_file.fWriteAt(0, &my_struct, sizeof(my_struct));
+	    // Display the new values
+	    show();    
+	  }
+	  idx = 0;
+	 }
   }
 }
