@@ -53,6 +53,7 @@ SFFS_Volume API:
 // VolumeCreate(char* volumeName);         // Create a new volume, overwrite if one already exists
 // VolumeSize();                           // Return the total size of the FRAM
 // VolumeFree();                           // Return the size of free storage available for files
+// FileCount();                            // Return the number of files that currently exist on the volume
 ```
 
 SFFS_File API:
