@@ -24,7 +24,7 @@ bool g_bDebug = false;
 #define DEBUG_DEV(s)
 #endif
 
-void 
+void
 SFFS_Volume::_printDbgNum(uint32 num)
 {
 	DEBUG_OUT(print("*** num = 0x"));
@@ -87,7 +87,7 @@ SFFS_File::fOpen(uint index)
 	m_streamOffset = m_dataWrittenSize;
 	return InUse();
 }
-bool 
+bool
 SFFS_File::fOpen(const char* fileName)
 {
 	fClose();
@@ -152,7 +152,7 @@ SFFS_File::_showFH()
 
 
 uint32
-SFFS_File::fWrite(void* pSource, uint32 count)
+SFFS_File::fWrite(const void* pSource, uint32 count)
 {
   	DEBUG_OUT(print("Write: ")); DEBUG_OUT(print(m_name)); DEBUG_OUT(print(" bytes: ")); DEBUG_OUT(println(count));
 #ifdef DEV_DBG
@@ -165,6 +165,16 @@ SFFS_File::fWrite(void* pSource, uint32 count)
 	_showFH();
 #endif
 	return done;
+}
+
+uint32
+SFFS_File::fShrink(uint32 shrinkBy)
+{
+    m_dataWrittenSize -= (shrinkBy>m_dataWrittenSize) ? m_dataWrittenSize : shrinkBy;
+    if (m_streamOffset > m_dataWrittenSize)
+        m_streamOffset = m_dataWrittenSize;
+    commitWrite();
+    return fSize();
 }
 
 /**********************************************************************
@@ -207,9 +217,9 @@ SFFS_Volume::VolumeCreate(const char* volumeName)
 	SFFS_Tools::strcpy(m_volumeName, volumeName, sizeof(m_volumeName));
 	m_fileCount = 0;
 	m_dataMemStart = m_volumeSize;
-	
+
 	_volumeCommit();
-	
+
 	DEBUG_OUT(print("Volume '")); DEBUG_OUT(print(m_volumeName)); DEBUG_OUT(println("' created."));
 
 	return _volumeOpen();
@@ -230,9 +240,9 @@ SFFS_Volume::_volumeOpen()
 		m_ios.Read(&m_magic, sizeof(m_magic));
 		if (m_magic == SFFS_MAGIC_INT)
 		{
-			DEBUG_OUT(print("SFFS: Volume '")); 
-			DEBUG_OUT(print(m_volumeName)); 
-			DEBUG_OUT(println("' mounted.")); 
+			DEBUG_OUT(print("SFFS: Volume '"));
+			DEBUG_OUT(print(m_volumeName));
+			DEBUG_OUT(println("' mounted."));
 			SFFS_File::m_fileMemStart = m_ios.Tell();
 			bRet = true;
 		}

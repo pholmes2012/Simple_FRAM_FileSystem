@@ -88,8 +88,8 @@ private:
 	cIO_DRV& m_driver;
 	uint32 m_offset;
 public:
-	SFFS_Stream(cIO_DRV& driver) : 
-				m_driver(driver), 
+	SFFS_Stream(cIO_DRV& driver) :
+				m_driver(driver),
 				m_offset(0)
 	{
 	}
@@ -116,13 +116,13 @@ public:
 		Seek(addr);
 		return Read(pDest, count);
 	}
-	uint Write(void* pSource, uint32 count)
+	uint Write(const void* pSource, uint32 count)
 	{
 		count = m_driver.Write(m_offset, pSource, count);
 		m_offset += count;
 		return count;
 	}
-	uint Write(uint32 addr, void* pSource, uint32 count)
+	uint Write(uint32 addr, const void* pSource, uint32 count)
 	{
 		Seek(addr);
 		return Write(pSource, count);
@@ -153,7 +153,7 @@ public:
 	bool fOpen(uint index);
 	bool fOpen(const char* fileName);
 	bool fCreate(const char* fileName, uint32 maxSize);
-	
+
 	bool InUse()
 	{
 		return m_bInUse;
@@ -181,8 +181,8 @@ public:
 			return fRead(pBuf, count);
 		return 0;
 	}
-	uint32 fWrite(void* pBuf, uint32 count);
-	uint32 fWriteAt(uint32 offset, void* pBuf, uint32 count)
+	uint32 fWrite(const void* pBuf, uint32 count);
+	uint32 fWriteAt(uint32 offset, const void* pBuf, uint32 count)
 	{
 		if (fSeek(offset)==offset)
 			return fWrite(pBuf, count);
@@ -198,6 +198,7 @@ public:
 	{
 		return m_streamOffset;
 	}
+	uint32 fShrink(uint32 shrinkBy);
 	void fClose()
 	{
 		if (InUse())
@@ -272,7 +273,7 @@ private:
 	SFFS_Stream m_ios;
 public:
 
-	SFFS_Volume(cIO_DRV& driver) : 
+	SFFS_Volume(cIO_DRV& driver) :
 			m_magic(0),
 			m_volumeSize(0),
 			m_fileCount(0),
