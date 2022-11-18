@@ -1,4 +1,6 @@
 # Simple_FRAM_FileSystem
+[![Compile Examples](https://github.com/pholmes2012/Simple_FRAM_FileSystem/workflows/Compile%20Examples/badge.svg)](https://github.com/pholmes2012/Simple_FRAM_FileSystem/actions?workflow=Compile+Examples)
+
 An Arduino library that is a small footprint embedded style file system for FRAM breakouts, supporting both SPI and I2C.
 
 Features:
